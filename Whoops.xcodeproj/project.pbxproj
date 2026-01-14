@@ -16,6 +16,41 @@
 			path = Whoops;
 			sourceTree = "<group>";
 		};
+		CDBF01E92F13B51C00B127A4 /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App;
+			sourceTree = "<group>";
+		};
+		CDBF01F12F13B51C00B127A4 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		CDBF01F22F13B51C00B127A4 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		CDBF02022F13B51C00B127A4 /* Services */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Services;
+			sourceTree = "<group>";
+		};
+		CDBF02062F13B51C00B127A4 /* Utilities */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		CDBF020A2F13B51C00B127A4 /* ViewModels */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		CDBF021D2F13B51C00B127A4 /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +67,13 @@
 		CDBF016F2F13B16F00B127A4 = {
 			isa = PBXGroup;
 			children = (
+				CDBF01E92F13B51C00B127A4 /* App */,
+				CDBF01F12F13B51C00B127A4 /* Models */,
+				CDBF01F22F13B51C00B127A4 /* Resources */,
+				CDBF02022F13B51C00B127A4 /* Services */,
+				CDBF02062F13B51C00B127A4 /* Utilities */,
+				CDBF020A2F13B51C00B127A4 /* ViewModels */,
+				CDBF021D2F13B51C00B127A4 /* Views */,
 				CDBF017A2F13B16F00B127A4 /* Whoops */,
 				CDBF01792F13B16F00B127A4 /* Products */,
 			);
@@ -62,6 +104,12 @@
 			);
 			fileSystemSynchronizedGroups = (
 				CDBF017A2F13B16F00B127A4 /* Whoops */,
+				CDBF01E92F13B51C00B127A4 /* App */,
+				CDBF01F12F13B51C00B127A4 /* Models */,
+				CDBF02022F13B51C00B127A4 /* Services */,
+				CDBF02062F13B51C00B127A4 /* Utilities */,
+				CDBF020A2F13B51C00B127A4 /* ViewModels */,
+				CDBF021D2F13B51C00B127A4 /* Views */,
 			);
 			name = Whoops;
 			packageProductDependencies = (
@@ -249,15 +297,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Whoops/Whoops.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6NSX84D3PB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Whoops;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Whoops needs access to your health data to calculate recovery and strain metrics";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Whoops reads your Apple Health data to provide personalized analytics";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -280,15 +335,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Whoops/Whoops.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6NSX84D3PB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Whoops;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Whoops needs access to your health data to calculate recovery and strain metrics";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Whoops reads your Apple Health data to provide personalized analytics";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
