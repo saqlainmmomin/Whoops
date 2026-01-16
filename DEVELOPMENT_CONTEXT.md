@@ -55,16 +55,6 @@
 | **Bug Fixes** | Fixed invalid Range `100...0` causing fatal crash | `Services/Calculations/Tier2Calculator.swift` |
 | **Code Cleanup** | Removed unnecessary `@preconcurrency` annotations | `Baseline.swift`, `DailyMetrics.swift` |
 
-**Design Tokens (Theme.swift):**
-```swift
-Theme.Colors.sovereignBlack   // #000000 - OLED black
-Theme.Colors.neonTeal         // #00E5FF - Recovery accent
-Theme.Colors.neonRed          // #FF003C - Strain accent
-Theme.Colors.neonGreen        // #00FF94 - Sleep/positive
-Theme.Colors.neonGold         // #FFD700 - Warning/calories
-Theme.Colors.panelGray        // #1C1C1E - Card backgrounds
-```
-
 ### Session 4 (Jan 14, 2025) - Interactive Features & Habit Building
 **Major Upgrade:** Transformed from read-only dashboard to interactive habit-building app
 
@@ -95,27 +85,100 @@ Theme.Colors.panelGray        // #1C1C1E - Card backgrounds
 | **Services/Notifications** | `NotificationManager.swift` |
 | **ViewModels** | `HabitsViewModel.swift` |
 
-**Files Modified:**
-
-| File | Changes |
-|------|---------|
-| `WhoopsApp.swift` | Added UserProfile, Goal, DetectedPattern, WeeklyReport to schema; onboarding flow; Habits tab |
-| `DashboardView.swift` | Wrapped in NavigationStack; tappable NavigationLinks; sparklines in cards |
-| `DeepDataCard.swift` | Added trend indicator and sparkline content slot |
-| `TimelineView.swift` | Added comparison mode with multi-selection UI |
-| `ProfileTensorView.swift` | Connected to UserProfile via @Query; notification settings link |
-| `HealthKitManager.swift` | Added `fetchUserCharacteristics()` for age/sex/height/weight |
-| `DailyMetrics.swift` | Added `placeholder(for:)` static method for previews |
-
-**Bug Fixes:**
-- Added `import Combine` to `NotificationManager.swift` and `HabitsViewModel.swift` (ObservableObject conformance)
-
 **Technical Patterns Introduced:**
 - NavigationStack with `navigationDestination(for: MetricType.self)` router
 - Comparison mode with multi-selection state (`compareFirstDay`, `compareSecondDay`)
 - Pattern detection using Pearson correlation
 - NotificationManager singleton with `@AppStorage` preferences
 - Swift Charts framework for SparklineChart and MetricLineChart
+
+### Session 5 (Jan 16, 2025) - Brutalist/Industrial UI Redesign
+**Major Pivot:** Complete visual overhaul from neon "Sovereign" theme to stark Brutalist/Industrial aesthetic
+
+**Design Philosophy:**
+- Heavy typography, stark black/white contrasts
+- Bold geometric forms, raw edges
+- No rounded corners, no soft shadows, no gradients
+- ONE sharp accent color (Rust Red) for critical data
+- Visible structure, intentional roughness
+
+**Theme System Overhaul (`Theme.swift`):**
+
+| Before (Sovereign) | After (Brutalist) |
+|-------------------|-------------------|
+| `sovereignBlack` (#000000) | `void` (pure black) |
+| `neonTeal` (#00E5FF) | `bone` (pure white) |
+| `neonRed` (#FF003C) | `rust` (#FF2D00) |
+| `neonGreen` (#00FF94) | Removed - binary states only |
+| `neonGold` (#FFD700) | `chalk` (#888888) |
+| `panelGray` (#1C1C1E) | `concrete` (#0A0A0A), `steel` (#1A1A1A) |
+| Gradients | Flat colors only |
+| Glow effects | No effects |
+| 12pt corner radius | 0pt (sharp edges) |
+
+**New Color Tokens:**
+```swift
+Theme.Colors.void      // #000000 - Primary background (OLED black)
+Theme.Colors.concrete  // #0A0A0A - Secondary surface
+Theme.Colors.steel     // #1A1A1A - Tertiary/inactive
+Theme.Colors.graphite  // #2A2A2A - Borders/dividers
+Theme.Colors.bone      // #FFFFFF - Primary text
+Theme.Colors.chalk     // #888888 - Secondary text
+Theme.Colors.ash       // #555555 - Disabled/inactive
+Theme.Colors.rust      // #FF2D00 - Critical accent (THE accent)
+```
+
+**Typography Changes:**
+```swift
+Theme.Fonts.mono(size:)     // SF Mono Bold - all numeric values
+Theme.Fonts.display(size:)  // SF Mono Heavy - massive numbers
+Theme.Fonts.header(size:)   // SF Pro Bold - section headers
+Theme.Fonts.label(size:)    // SF Pro Medium - labels (UPPERCASE + tracking)
+```
+
+**Component Transformations:**
+
+| Component | Before | After |
+|-----------|--------|-------|
+| `SovereignGauge` | Circular ring with neon glow | Horizontal bar meter with tick marks |
+| `DeepDataCard` | Rounded cards, subtle backgrounds | Sharp-edged blocks, visible 1px borders |
+| `RecoveryCard` | System colors, soft styling | Industrial meters, rust accent for critical |
+| `StrainCard` | Gradient fills, rounded corners | Binary color states, hard dividers |
+
+**Dashboard Layout Restructure:**
+- **Primary Zone (40%+):** Recovery meter - dominant visual weight
+- **Secondary Zone:** Strain + HRV + RHR in compact cells
+- **Tertiary Zone:** Sleep + Activity cards with sparklines
+- **Hard horizontal dividers** between zones
+- **Visible grid structure** throughout
+
+**New View Modifier:**
+```swift
+.brutalistBorder(_ color: Color = Theme.Colors.graphite, width: CGFloat = 1)
+// Applies hard-edged rectangular border, no rounded corners
+```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `Theme.swift` | Complete color/typography overhaul, removed gradients, added `.brutalistBorder()` modifier |
+| `SovereignGauge.swift` | Replaced circular gauge with horizontal bar meter |
+| `DeepDataCard.swift` | Sharp edges, visible borders, new trend badge styling |
+| `DashboardView.swift` | Asymmetric zone-based layout, hard dividers |
+| `RecoveryCard.swift` | Industrial styling, component breakdown cells |
+| `StrainCard.swift` | Binary color states, tick marks at 33%/67% |
+| `TimelineView.swift` | Brutalist day rows, week headers, day detail view |
+| `ComparisonView.swift` | Hard-edged comparison blocks, VS divider |
+| `MetricDetailView.swift` | Large mono numbers, collapsible formula cards |
+
+**Design Decisions:**
+- Accent color: Rust Red (#FF2D00) - industrial urgency
+- Typography: SF Mono Bold for all numeric values
+- Borders: 1px graphite borders, rust for critical states
+- Score states: Binary (normal = bone, critical = rust)
+  - Recovery ≤33 = critical
+  - Strain ≥67 = critical
 
 ---
 
@@ -135,14 +198,14 @@ Whoops/
 │   ├── ActivityData.swift       # Steps, energy, distance
 │   ├── DailyMetrics.swift       # Aggregated daily snapshot
 │   ├── Baseline.swift           # Rolling baselines
-│   ├── UserProfile.swift        # [Session 4] User name + HealthKit characteristics
-│   ├── Goal.swift               # [Session 4] Habit goals with streak tracking
-│   ├── DetectedPattern.swift    # [Session 4] Correlation-based patterns
-│   └── WeeklyReport.swift       # [Session 4] Weekly summary reports
+│   ├── UserProfile.swift        # User name + HealthKit characteristics
+│   ├── Goal.swift               # Habit goals with streak tracking
+│   ├── DetectedPattern.swift    # Correlation-based patterns
+│   └── WeeklyReport.swift       # Weekly summary reports
 │
 ├── Services/
 │   ├── HealthKit/
-│   │   ├── HealthKitManager.swift  # + fetchUserCharacteristics()
+│   │   ├── HealthKitManager.swift
 │   │   ├── HKQueryBuilders.swift
 │   │   └── HKDataMappers.swift
 │   ├── Calculations/
@@ -156,43 +219,45 @@ Whoops/
 │   │   └── ExportService.swift
 │   ├── DataQuality/
 │   │   └── GapDetector.swift
-│   ├── Habits/                  # [Session 4]
-│   │   └── PatternDetector.swift    # Pearson correlation pattern detection
-│   └── Notifications/           # [Session 4]
-│       └── NotificationManager.swift # Recovery alerts, bedtime reminders
+│   ├── Habits/
+│   │   └── PatternDetector.swift
+│   └── Notifications/
+│       └── NotificationManager.swift
 │
 ├── ViewModels/
-│   ├── DashboardViewModel.swift     # + sparkline data, trends
+│   ├── DashboardViewModel.swift
 │   ├── TimelineViewModel.swift
 │   ├── ExportViewModel.swift
-│   └── HabitsViewModel.swift        # [Session 4] Goals, patterns, reports
+│   └── HabitsViewModel.swift
 │
 ├── Views/
 │   ├── Dashboard/
-│   │   └── DashboardView.swift      # NavigationStack, tappable cards
+│   │   ├── DashboardView.swift      # Brutalist zone-based layout
+│   │   ├── RecoveryCard.swift       # Industrial meter styling
+│   │   └── StrainCard.swift         # Binary color states
 │   ├── Profile/
-│   │   └── ProfileTensorView.swift  # Real user data, settings link
+│   │   └── ProfileTensorView.swift
 │   ├── Detail/
-│   │   └── MetricDetailView.swift   # Push destination for metrics
+│   │   └── MetricDetailView.swift   # Large mono numbers, formula cards
 │   ├── Timeline/
-│   │   ├── TimelineView.swift       # + comparison mode
-│   │   └── ComparisonView.swift     # [Session 4] Side-by-side comparison
-│   ├── Onboarding/              # [Session 4]
-│   │   └── OnboardingView.swift     # Welcome, name, HealthKit flow
-│   ├── Habits/                  # [Session 4]
-│   │   └── HabitsView.swift         # Patterns, goals, reports tabs
-│   ├── Settings/                # [Session 4]
+│   │   ├── TimelineView.swift       # Brutalist day rows
+│   │   └── ComparisonView.swift     # Hard-edged comparison
+│   ├── Onboarding/
+│   │   └── OnboardingView.swift
+│   ├── Habits/
+│   │   └── HabitsView.swift
+│   ├── Settings/
 │   │   └── NotificationSettingsView.swift
 │   ├── Export/
 │   └── Components/
-│       ├── SovereignGauge.swift
-│       ├── DeepDataCard.swift       # + trend indicator, sparkline slot
-│       └── Charts/              # [Session 4]
-│           ├── SparklineChart.swift     # Mini 7-day trend line
-│           └── MetricLineChart.swift    # Full interactive chart
+│       ├── SovereignGauge.swift     # Horizontal bar meter (brutalist)
+│       ├── DeepDataCard.swift       # Sharp-edged data blocks
+│       └── Charts/
+│           ├── SparklineChart.swift
+│           └── MetricLineChart.swift
 │
 ├── Utilities/
-│   ├── Theme.swift
+│   ├── Theme.swift                  # Brutalist design system
 │   ├── Constants.swift
 │   ├── DateHelpers.swift
 │   └── StatisticalHelpers.swift
@@ -243,12 +308,17 @@ let filtered = allRecords.filter { $0.id.hasPrefix(prefix) }
 - Info.plist auto-generated via `GENERATE_INFOPLIST_FILE = YES`
 - HealthKit permissions via `INFOPLIST_KEY_NSHealthShareUsageDescription`
 
-### Sovereign Dark Theme (Session 3)
+### Brutalist Design System (Session 5)
 - All UI forced to dark mode via `.preferredColorScheme(.dark)`
 - OLED black backgrounds (`#000000`) for battery savings
-- Neon accent colors for data visualization (Teal=Recovery, Red=Strain)
-- Circular gauge components with shadow glow effects
-- Tab-based navigation (Dashboard | Profile)
+- Single accent color: Rust Red (#FF2D00) for critical states
+- No rounded corners - all components use sharp rectangular edges
+- No gradients - flat colors only
+- No shadow/glow effects - hard borders instead
+- Typography: SF Mono Bold for numbers, uppercase labels with letter-spacing
+- Binary color states: bone (normal) vs rust (critical)
+- Horizontal bar meters replace circular gauges
+- Zone-based dashboard layout with hard dividers
 
 ---
 
@@ -261,16 +331,21 @@ Original uncorrupted source files: `/Users/saqlainmomin/Whoops/Whoops/`
 ## Next Steps
 
 1. ~~Build and test on device with real HealthKit data~~
-2. ~~Polish UI components~~ → Sovereign Dark theme implemented
+2. ~~Polish UI components~~ → Sovereign Dark theme (Session 3)
 3. ~~Add sparkline graphs inside `DeepDataCard` components~~ → Session 4
 4. ~~Connect `ProfileTensorView` to actual user data persistence~~ → Session 4
 5. ~~Implement onboarding flow~~ → Session 4
 6. ~~Add habit tracking system~~ → Session 4
 7. ~~Add timeline comparison mode~~ → Session 4
 8. ~~Implement smart notifications~~ → Session 4
-9. Add unit tests for calculators
-10. Test Recovery and Strain score calculations with real data
-11. Implement haptic feedback on interactions
-12. Add widget for home screen (Recovery/Strain at a glance)
-13. Add Apple Watch companion app
-
+9. ~~Fix strain circle bug~~ → Session 4.1
+10. ~~Unify color system with score-based colors~~ → Session 4.1
+11. ~~Implement 8pt spacing grid~~ → Session 4.1
+12. ~~Reduce UI noise (remove decorative elements)~~ → Session 4.1
+13. ~~Complete UI redesign with brutalist aesthetic~~ → Session 5
+14. Apply brutalist styling to remaining views (Onboarding, Habits, Settings, Profile)
+15. Add unit tests for calculators
+16. Test Recovery and Strain score calculations with real data
+17. Implement haptic feedback on interactions
+18. Add widget for home screen (Recovery/Strain at a glance)
+19. Add Apple Watch companion app
