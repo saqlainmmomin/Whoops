@@ -1,141 +1,176 @@
 import SwiftUI
 
+// MARK: - Brutalist Recovery Card
+// Stark. Data-forward. Industrial.
+
 struct RecoveryCard: View {
     let score: RecoveryScore?
     let trend: TrendDirection?
 
+    private var isCritical: Bool {
+        (score?.score ?? 0) <= 33
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
-                Image(systemName: "arrow.up.heart.fill")
-                    .foregroundColor(scoreColor)
-                Text("Recovery")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            // Header row
+            HStack(alignment: .center) {
+                Text("RECOVERY")
+                    .font(Theme.Fonts.label(size: 10))
+                    .foregroundColor(Theme.Colors.chalk)
+                    .tracking(2)
 
                 Spacer()
 
                 ConfidenceIndicator(confidence: score?.confidence ?? .low)
             }
 
-            // Main score
-            HStack(alignment: .center, spacing: 20) {
-                // Gauge
-                MetricGauge(
-                    value: Double(score?.score ?? 0),
-                    maxValue: 100,
-                    color: scoreColor,
-                    size: 100
-                )
+            // Divider
+            Rectangle()
+                .fill(Theme.Colors.graphite)
+                .frame(height: 1)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    // Score value
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(score?.score ?? 0)")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-
-                        Text("%")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-
-                        if let trend = trend {
-                            TrendIndicator(direction: trend)
+            // Main score display
+            HStack(alignment: .center, spacing: Theme.Spacing.lg) {
+                // Score bar
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Theme.Colors.steel)
+                            Rectangle()
+                                .fill(scoreColor)
+                                .frame(width: geo.size.width * CGFloat(score?.score ?? 0) / 100)
                         }
                     }
+                    .frame(height: 12)
 
                     // Category
-                    Text(score?.category.rawValue ?? "No Data")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    // Description
-                    Text(score?.category.description ?? "Insufficient data to calculate recovery")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                    Text((score?.category.rawValue ?? "NO DATA").uppercased())
+                        .font(Theme.Fonts.mono(size: 11))
+                        .foregroundColor(Theme.Colors.chalk)
+                        .tracking(1)
                 }
 
                 Spacer()
+
+                // Score value
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text("\(score?.score ?? 0)")
+                        .font(Theme.Fonts.display(size: 48))
+                        .foregroundColor(scoreColor)
+                        .monospacedDigit()
+
+                    Text("%")
+                        .font(Theme.Fonts.mono(size: 18))
+                        .foregroundColor(Theme.Colors.chalk)
+
+                    if let trend = trend {
+                        trendIndicator(trend)
+                            .padding(.leading, Theme.Spacing.xs)
+                    }
+                }
             }
 
-            // Component breakdown (mini)
+            // Component breakdown
             if let score = score {
                 componentBreakdown(score)
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        .padding(Theme.Spacing.md)
+        .background(Theme.Colors.concrete)
+        .brutalistBorder(isCritical ? Theme.Colors.rust : Theme.Colors.graphite)
     }
 
-    // MARK: - Component Breakdown
+    // MARK: - Components
 
     private func componentBreakdown(_ score: RecoveryScore) -> some View {
-        VStack(spacing: 8) {
-            Divider()
+        VStack(spacing: Theme.Spacing.sm) {
+            Rectangle()
+                .fill(Theme.Colors.graphite)
+                .frame(height: 1)
 
-            HStack(spacing: 12) {
-                componentPill("HRV", value: score.hrvComponent.normalizedValue)
-                componentPill("RHR", value: score.rhrComponent.normalizedValue)
-                componentPill("Sleep", value: score.sleepDurationComponent.normalizedValue)
+            HStack(spacing: Theme.Spacing.sm) {
+                componentCell("HRV", value: Int(score.hrvComponent.normalizedValue))
+                componentCell("RHR", value: Int(score.rhrComponent.normalizedValue))
+                componentCell("SLEEP", value: Int(score.sleepDurationComponent.normalizedValue))
             }
         }
     }
 
-    private func componentPill(_ label: String, value: Double) -> some View {
-        VStack(spacing: 4) {
+    private func componentCell(_ label: String, value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .font(Theme.Fonts.label(size: 9))
+                .foregroundColor(Theme.Colors.ash)
+                .tracking(1)
 
-            Text("\(Int(value))")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(componentColor(for: value))
+            Text("\(value)")
+                .font(Theme.Fonts.mono(size: 14))
+                .foregroundColor(componentColor(value))
+                .monospacedDigit()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.xs)
+        .background(Theme.Colors.steel)
     }
 
-    // MARK: - Colors
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func trendIndicator(_ trend: TrendDirection) -> some View {
+        Image(systemName: trend.icon)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(trendColor(trend))
+    }
 
     private var scoreColor: Color {
-        guard let score = score?.score else { return .gray }
-        switch score {
-        case 0...33: return .red
-        case 34...66: return .yellow
-        default: return .green
-        }
+        guard let score = score?.score else { return Theme.Colors.ash }
+        return Theme.Colors.recovery(score: score)
     }
 
-    private func componentColor(for value: Double) -> Color {
-        switch value {
-        case 0...33: return .red
-        case 34...66: return .orange
-        default: return .green
+    private func componentColor(_ value: Int) -> Color {
+        value <= 33 ? Theme.Colors.rust : Theme.Colors.bone
+    }
+
+    private func trendColor(_ trend: TrendDirection) -> Color {
+        switch trend {
+        case .improving: return Theme.Colors.bone
+        case .stable: return Theme.Colors.ash
+        case .declining: return Theme.Colors.rust
         }
     }
 }
 
 #Preview {
-    VStack {
-        RecoveryCard(
-            score: RecoveryScore(
-                score: 72,
-                confidence: .high,
-                hrvComponent: ScoreComponent(name: "HRV", rawValue: 1.2, normalizedValue: 80, weight: 0.4, contribution: 32),
-                rhrComponent: ScoreComponent(name: "RHR", rawValue: -3, normalizedValue: 65, weight: 0.2, contribution: 13),
-                sleepDurationComponent: ScoreComponent(name: "Sleep", rawValue: 95, normalizedValue: 70, weight: 0.25, contribution: 17.5),
-                sleepInterruptionComponent: ScoreComponent(name: "Interruptions", rawValue: 2, normalizedValue: 60, weight: 0.15, contribution: 9)
-            ),
-            trend: .improving
-        )
+    ZStack {
+        Theme.Colors.void.ignoresSafeArea()
 
-        RecoveryCard(score: nil, trend: nil)
+        VStack(spacing: Theme.Spacing.md) {
+            RecoveryCard(
+                score: RecoveryScore(
+                    score: 72,
+                    confidence: .high,
+                    hrvComponent: ScoreComponent(name: "HRV", rawValue: 1.2, normalizedValue: 80, weight: 0.4, contribution: 32),
+                    rhrComponent: ScoreComponent(name: "RHR", rawValue: -3, normalizedValue: 65, weight: 0.2, contribution: 13),
+                    sleepDurationComponent: ScoreComponent(name: "Sleep", rawValue: 95, normalizedValue: 70, weight: 0.25, contribution: 17.5),
+                    sleepInterruptionComponent: ScoreComponent(name: "Interruptions", rawValue: 2, normalizedValue: 60, weight: 0.15, contribution: 9)
+                ),
+                trend: .improving
+            )
+
+            RecoveryCard(
+                score: RecoveryScore(
+                    score: 28,
+                    confidence: .medium,
+                    hrvComponent: ScoreComponent(name: "HRV", rawValue: -1.5, normalizedValue: 25, weight: 0.4, contribution: 10),
+                    rhrComponent: ScoreComponent(name: "RHR", rawValue: 5, normalizedValue: 30, weight: 0.2, contribution: 6),
+                    sleepDurationComponent: ScoreComponent(name: "Sleep", rawValue: 60, normalizedValue: 35, weight: 0.25, contribution: 8.75),
+                    sleepInterruptionComponent: ScoreComponent(name: "Interruptions", rawValue: 5, normalizedValue: 20, weight: 0.15, contribution: 3)
+                ),
+                trend: .declining
+            )
+        }
+        .padding()
     }
-    .padding()
-    .background(Color(.systemGroupedBackground))
 }

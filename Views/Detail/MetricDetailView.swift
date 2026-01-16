@@ -1,5 +1,8 @@
 import SwiftUI
 
+// MARK: - Brutalist Metric Detail
+// Deep data. Full transparency. No hiding.
+
 struct MetricDetailView: View {
     let metricType: MetricType
     let dailyMetrics: DailyMetrics?
@@ -15,10 +18,10 @@ struct MetricDetailView: View {
 
     var body: some View {
         ZStack {
-            Theme.Colors.sovereignBlack.ignoresSafeArea()
+            Theme.Colors.void.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: Theme.Spacing.lg) {
                     switch metricType {
                     case .recovery:
                         recoveryDetailContent
@@ -34,12 +37,12 @@ struct MetricDetailView: View {
                         activityDetailContent
                     }
                 }
-                .padding()
+                .padding(Theme.Spacing.md)
             }
         }
-        .navigationTitle(metricType.rawValue)
+        .navigationTitle(metricType.rawValue.uppercased())
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.Colors.sovereignBlack, for: .navigationBar)
+        .toolbarBackground(Theme.Colors.void, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
@@ -49,49 +52,49 @@ struct MetricDetailView: View {
     private var recoveryDetailContent: some View {
         if let recovery = dailyMetrics?.recoveryScore {
             // Score header
-            VStack(spacing: 8) {
-                MetricGauge(
-                    value: Double(recovery.score),
-                    maxValue: 100,
-                    color: recoveryColor(recovery.score),
-                    size: 120
-                )
+            VStack(spacing: Theme.Spacing.md) {
+                Text("\(recovery.score)")
+                    .font(Theme.Fonts.display(size: 72))
+                    .foregroundColor(recovery.score <= 33 ? Theme.Colors.rust : Theme.Colors.bone)
 
-                Text(recovery.category.rawValue)
-                    .font(.headline)
+                Text(recovery.category.rawValue.uppercased())
+                    .font(Theme.Fonts.mono(size: 14))
+                    .foregroundColor(Theme.Colors.chalk)
+                    .tracking(2)
 
                 Text(recovery.category.description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(Theme.Fonts.label(size: 12))
+                    .foregroundColor(Theme.Colors.chalk)
                     .multilineTextAlignment(.center)
 
                 ConfidenceLabel(confidence: recovery.confidence)
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity)
+            .background(Theme.Colors.concrete)
+            .brutalistBorder(recovery.score <= 33 ? Theme.Colors.rust : Theme.Colors.graphite)
 
-            // Component breakdown
+            // Components
             InputBreakdown(
-                title: "Score Components",
+                title: "COMPONENTS",
                 components: recovery.components
             )
 
-            // Formula transparency
+            // Formula
             FormulaCard(
-                title: "How Recovery is Calculated",
+                title: "CALCULATION",
                 formula: RecoveryDecomposition(recoveryScore: recovery, baseline: baseline).formula,
                 timeWindow: RecoveryDecomposition(recoveryScore: recovery, baseline: baseline).timeWindow
             )
 
             // Raw inputs
             if let metrics = dailyMetrics {
-                RawInputsCard(
-                    inputs: buildRecoveryInputs(from: metrics)
-                )
+                RawInputsCard(inputs: buildRecoveryInputs(from: metrics))
             }
         } else {
             MissingDataNotice(
-                metricName: "Recovery Score",
-                reason: "Insufficient data to calculate recovery. Ensure you have sleep, HRV, and heart rate data."
+                metricName: "RECOVERY",
+                reason: "INSUFFICIENT DATA. REQUIRES SLEEP, HRV, AND HEART RATE."
             )
         }
     }
@@ -101,33 +104,32 @@ struct MetricDetailView: View {
     @ViewBuilder
     private var strainDetailContent: some View {
         if let strain = dailyMetrics?.strainScore {
-            VStack(spacing: 8) {
-                MetricGauge(
-                    value: Double(strain.score),
-                    maxValue: 100,
-                    color: strainColor(strain.score),
-                    size: 120
-                )
+            VStack(spacing: Theme.Spacing.md) {
+                Text("\(strain.score)")
+                    .font(Theme.Fonts.display(size: 72))
+                    .foregroundColor(strain.score >= 67 ? Theme.Colors.rust : Theme.Colors.bone)
 
-                Text(strain.category.rawValue)
-                    .font(.headline)
+                Text(strain.category.rawValue.uppercased())
+                    .font(Theme.Fonts.mono(size: 14))
+                    .foregroundColor(Theme.Colors.chalk)
+                    .tracking(2)
 
                 Text(strain.category.description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(Theme.Fonts.label(size: 12))
+                    .foregroundColor(Theme.Colors.chalk)
                     .multilineTextAlignment(.center)
 
                 ConfidenceLabel(confidence: strain.confidence)
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity)
+            .background(Theme.Colors.concrete)
+            .brutalistBorder(strain.score >= 67 ? Theme.Colors.rust : Theme.Colors.graphite)
 
-            InputBreakdown(
-                title: "Score Components",
-                components: strain.components
-            )
+            InputBreakdown(title: "COMPONENTS", components: strain.components)
 
             FormulaCard(
-                title: "How Strain is Calculated",
+                title: "CALCULATION",
                 formula: StrainDecomposition(strainScore: strain, baseline: baseline).formula,
                 timeWindow: StrainDecomposition(strainScore: strain, baseline: baseline).timeWindow
             )
@@ -137,8 +139,8 @@ struct MetricDetailView: View {
             }
         } else {
             MissingDataNotice(
-                metricName: "Strain Score",
-                reason: "No activity data recorded today. Strain is calculated from workouts and heart rate zones."
+                metricName: "STRAIN",
+                reason: "NO ACTIVITY DATA. STRAIN CALCULATED FROM WORKOUTS AND HR ZONES."
             )
         }
     }
@@ -148,41 +150,46 @@ struct MetricDetailView: View {
     @ViewBuilder
     private var sleepDetailContent: some View {
         if let sleep = dailyMetrics?.sleep {
-            VStack(spacing: 16) {
+            VStack(spacing: Theme.Spacing.md) {
                 // Duration header
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Spacing.xs) {
                     Text(formatHours(sleep.totalSleepHours))
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .font(Theme.Fonts.display(size: 48))
+                        .foregroundColor(Theme.Colors.bone)
 
                     if let baseline = baseline?.averageSleepDuration {
                         CompactBaselineComparison(
                             current: sleep.totalSleepHours,
                             baseline: baseline,
-                            unit: "h",
+                            unit: "H",
                             higherIsBetter: true
                         )
                     }
                 }
+                .padding(Theme.Spacing.lg)
+                .frame(maxWidth: .infinity)
+                .background(Theme.Colors.concrete)
+                .brutalistBorder()
 
                 // Efficiency
                 if sleep.averageEfficiency > 0 {
                     HStack {
-                        Text("Sleep Efficiency")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Text("EFFICIENCY")
+                            .font(Theme.Fonts.label(size: 10))
+                            .foregroundColor(Theme.Colors.chalk)
+                            .tracking(1)
                         Spacer()
                         Text("\(Int(sleep.averageEfficiency))%")
-                            .font(.headline)
+                            .font(Theme.Fonts.mono(size: 18))
+                            .foregroundColor(Theme.Colors.bone)
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.Colors.steel)
+                    .brutalistBorder()
                 }
 
-                // Stage breakdown
                 SleepStageBreakdownCard(breakdown: sleep.combinedStageBreakdown)
 
-                // Timing
                 if let primary = sleep.primarySession {
                     SleepTimingCard(
                         bedtime: primary.startDate,
@@ -193,8 +200,8 @@ struct MetricDetailView: View {
             }
         } else {
             MissingDataNotice(
-                metricName: "Sleep",
-                reason: "No sleep data recorded. Wear your Apple Watch while sleeping."
+                metricName: "SLEEP",
+                reason: "NO SLEEP DATA. WEAR APPLE WATCH WHILE SLEEPING."
             )
         }
     }
@@ -204,38 +211,36 @@ struct MetricDetailView: View {
     @ViewBuilder
     private var heartRateDetailContent: some View {
         if let hr = dailyMetrics?.heartRate {
-            VStack(spacing: 16) {
-                // Resting HR
+            VStack(spacing: Theme.Spacing.md) {
                 if let resting = hr.restingBPM {
                     BaselineComparisonView(
                         current: resting,
                         baseline: baseline?.averageRestingHR ?? resting,
-                        unit: "bpm",
-                        label: "Resting Heart Rate",
+                        unit: "BPM",
+                        label: "RESTING HR",
                         higherIsBetter: false
                     )
                 }
 
-                // Daily stats
-                HStack(spacing: 16) {
-                    StatBox(label: "Average", value: "\(hr.roundedAverage)", unit: "bpm")
-                    StatBox(label: "Min", value: "\(Int(hr.minBPM))", unit: "bpm")
-                    StatBox(label: "Max", value: "\(Int(hr.maxBPM))", unit: "bpm")
+                HStack(spacing: Theme.Spacing.sm) {
+                    StatBox(label: "AVG", value: "\(hr.roundedAverage)", unit: "BPM")
+                    StatBox(label: "MIN", value: "\(Int(hr.minBPM))", unit: "BPM")
+                    StatBox(label: "MAX", value: "\(Int(hr.maxBPM))", unit: "BPM")
                 }
 
-                // HR Recovery if available
                 if let recovery = dailyMetrics?.hrRecovery {
                     HRRecoveryCard(recovery: recovery)
                 }
 
-                Text("\(hr.sampleCount) heart rate samples recorded today")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("\(hr.sampleCount) SAMPLES")
+                    .font(Theme.Fonts.mono(size: 10))
+                    .foregroundColor(Theme.Colors.ash)
+                    .tracking(1)
             }
         } else {
             MissingDataNotice(
-                metricName: "Heart Rate",
-                reason: "No heart rate data available. Ensure your Apple Watch is worn properly."
+                metricName: "HEART RATE",
+                reason: "NO HR DATA. ENSURE APPLE WATCH WORN PROPERLY."
             )
         }
     }
@@ -245,52 +250,36 @@ struct MetricDetailView: View {
     @ViewBuilder
     private var hrvDetailContent: some View {
         if let hrv = dailyMetrics?.hrv {
-            VStack(spacing: 16) {
-                // Nightly HRV
+            VStack(spacing: Theme.Spacing.md) {
                 if let nightly = hrv.nightlySDNN {
                     BaselineComparisonView(
                         current: nightly,
                         baseline: baseline?.averageHRV ?? nightly,
-                        unit: "ms",
-                        label: "Nightly HRV (SDNN)",
+                        unit: "MS",
+                        label: "NIGHTLY HRV",
                         higherIsBetter: true
                     )
                 }
 
-                // Z-score if available
                 if let zScore = dailyMetrics?.hrvDeviation {
-                    ZScoreDisplay(zScore: zScore, label: "HRV Deviation from Baseline")
+                    ZScoreDisplay(zScore: zScore, label: "DEVIATION FROM BASELINE")
                 }
 
-                // Stats
-                HStack(spacing: 16) {
-                    StatBox(label: "Average", value: "\(hrv.roundedAverage)", unit: "ms")
-                    StatBox(label: "Min", value: "\(Int(hrv.minSDNN))", unit: "ms")
-                    StatBox(label: "Max", value: "\(Int(hrv.maxSDNN))", unit: "ms")
+                HStack(spacing: Theme.Spacing.sm) {
+                    StatBox(label: "AVG", value: "\(hrv.roundedAverage)", unit: "MS")
+                    StatBox(label: "MIN", value: "\(Int(hrv.minSDNN))", unit: "MS")
+                    StatBox(label: "MAX", value: "\(Int(hrv.maxSDNN))", unit: "MS")
                 }
 
-                Text("\(hrv.sampleCount) HRV measurements recorded")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                // Educational note
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("About HRV")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    Text("Heart Rate Variability measures the variation in time between heartbeats. Higher HRV typically indicates better recovery and cardiovascular fitness. HRV is most accurate when measured during sleep.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                Text("\(hrv.sampleCount) MEASUREMENTS")
+                    .font(Theme.Fonts.mono(size: 10))
+                    .foregroundColor(Theme.Colors.ash)
+                    .tracking(1)
             }
         } else {
             MissingDataNotice(
                 metricName: "HRV",
-                reason: "No HRV data available. Wear your Apple Watch during sleep for accurate HRV measurements."
+                reason: "NO HRV DATA. WEAR WATCH DURING SLEEP FOR ACCURATE READINGS."
             )
         }
     }
@@ -300,70 +289,53 @@ struct MetricDetailView: View {
     @ViewBuilder
     private var activityDetailContent: some View {
         if let activity = dailyMetrics?.activity {
-            VStack(spacing: 16) {
-                // Steps
+            VStack(spacing: Theme.Spacing.md) {
                 BaselineComparisonView(
                     current: Double(activity.steps),
                     baseline: baseline?.averageSteps ?? Double(activity.steps),
-                    unit: "steps",
-                    label: "Steps",
+                    unit: "STEPS",
+                    label: "STEPS",
                     higherIsBetter: true
                 )
 
-                // Energy
-                HStack(spacing: 16) {
-                    StatBox(label: "Active", value: "\(Int(activity.activeEnergy))", unit: "kcal")
-                    StatBox(label: "Basal", value: "\(Int(activity.basalEnergy))", unit: "kcal")
-                    StatBox(label: "Total", value: "\(Int(activity.totalEnergy))", unit: "kcal")
+                HStack(spacing: Theme.Spacing.sm) {
+                    StatBox(label: "ACTIVE", value: "\(Int(activity.activeEnergy))", unit: "KCAL")
+                    StatBox(label: "BASAL", value: "\(Int(activity.basalEnergy))", unit: "KCAL")
+                    StatBox(label: "TOTAL", value: "\(Int(activity.totalEnergy))", unit: "KCAL")
                 }
 
-                // Distance
                 HStack {
-                    Text("Distance")
-                        .foregroundColor(.secondary)
+                    Text("DISTANCE")
+                        .font(Theme.Fonts.label(size: 10))
+                        .foregroundColor(Theme.Colors.chalk)
+                        .tracking(1)
                     Spacer()
-                    Text(activity.formattedDistance)
-                        .fontWeight(.medium)
+                    Text(activity.formattedDistance.uppercased())
+                        .font(Theme.Fonts.mono(size: 14))
+                        .foregroundColor(Theme.Colors.bone)
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .padding(Theme.Spacing.md)
+                .background(Theme.Colors.steel)
+                .brutalistBorder()
 
-                // Workouts
                 if let workouts = dailyMetrics?.workouts, workouts.totalWorkouts > 0 {
                     WorkoutSummaryCard(summary: workouts)
                 }
             }
         } else {
             MissingDataNotice(
-                metricName: "Activity",
-                reason: "No activity data available for today."
+                metricName: "ACTIVITY",
+                reason: "NO ACTIVITY DATA FOR TODAY."
             )
         }
     }
 
     // MARK: - Helpers
 
-    private func recoveryColor(_ score: Int) -> Color {
-        switch score {
-        case 0...33: return .red
-        case 34...66: return .yellow
-        default: return .green
-        }
-    }
-
-    private func strainColor(_ score: Int) -> Color {
-        switch score {
-        case 0...33: return .blue
-        case 34...66: return .orange
-        default: return .red
-        }
-    }
-
     private func formatHours(_ hours: Double) -> String {
         let h = Int(hours)
         let m = Int((hours - Double(h)) * 60)
-        return "\(h)h \(m)m"
+        return "\(h)H \(m)M"
     }
 
     private func buildRecoveryInputs(from metrics: DailyMetrics) -> [MetricInput] {
@@ -389,44 +361,49 @@ struct MetricDetailView: View {
     }
 }
 
-// MARK: - Supporting Views
+// MARK: - Supporting Views (Brutalist)
 
 struct InputBreakdown: View {
     let title: String
     let components: [ScoreComponent]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
-                .font(.headline)
+                .font(Theme.Fonts.label(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(2)
 
             ForEach(components) { component in
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(component.name)
-                            .font(.subheadline)
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Rectangle()
+                            .fill(weightColor(for: component.weight))
+                            .frame(width: 3, height: 20)
 
-                        Text("Weight: \(Int(component.weight * 100))%")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Text(component.name.uppercased())
+                            .font(Theme.Fonts.mono(size: 11))
+                            .foregroundColor(Theme.Colors.chalk)
                     }
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(component.formattedContribution)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Raw: \(component.formattedRawValue)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text(component.formattedContribution)
+                        .font(Theme.Fonts.mono(size: 12))
+                        .foregroundColor(Theme.Colors.bone)
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
+                .padding(Theme.Spacing.sm)
+                .background(Theme.Colors.steel)
+                .brutalistBorder()
             }
+        }
+    }
+
+    private func weightColor(for weight: Double) -> Color {
+        switch weight {
+        case 0.35...: return Theme.Colors.bone
+        case 0.20..<0.35: return Theme.Colors.chalk
+        default: return Theme.Colors.ash
         }
     }
 }
@@ -439,42 +416,45 @@ struct FormulaCard: View {
     @State private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Button {
                 withAnimation { isExpanded.toggle() }
             } label: {
                 HStack {
                     Text(title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                        .font(Theme.Fonts.label(size: 10))
+                        .foregroundColor(Theme.Colors.chalk)
+                        .tracking(2)
 
                     Spacer()
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundColor(.secondary)
+                    Image(systemName: isExpanded ? "minus" : "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Theme.Colors.chalk)
                 }
             }
 
             if isExpanded {
                 Text(formula)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding()
-                    .background(Color(.systemGray5))
-                    .cornerRadius(8)
+                    .font(Theme.Fonts.mono(size: 10))
+                    .foregroundColor(Theme.Colors.bone)
+                    .padding(Theme.Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.Colors.steel)
+                    .brutalistBorder()
 
-                HStack {
+                HStack(spacing: Theme.Spacing.xs) {
                     Image(systemName: "clock")
-                        .foregroundColor(.secondary)
-                    Text(timeWindow)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 10))
+                    Text(timeWindow.uppercased())
+                        .font(Theme.Fonts.mono(size: 9))
                 }
+                .foregroundColor(Theme.Colors.ash)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(Theme.Spacing.md)
+        .background(Theme.Colors.concrete)
+        .brutalistBorder()
     }
 }
 
@@ -482,31 +462,34 @@ struct RawInputsCard: View {
     let inputs: [MetricInput]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Raw Input Values")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text("RAW INPUTS")
+                .font(Theme.Fonts.label(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(2)
 
             ForEach(inputs) { input in
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(input.name)
-                            .font(.subheadline)
-                        Text(input.source)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(input.name.uppercased())
+                            .font(Theme.Fonts.mono(size: 10))
+                            .foregroundColor(Theme.Colors.bone)
+                        Text(input.source.uppercased())
+                            .font(Theme.Fonts.label(size: 8))
+                            .foregroundColor(Theme.Colors.ash)
                     }
 
                     Spacer()
 
-                    Text(input.formattedValue)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                    Text(input.formattedValue.uppercased())
+                        .font(Theme.Fonts.mono(size: 12))
+                        .foregroundColor(Theme.Colors.bone)
                 }
+                .padding(Theme.Spacing.sm)
+                .background(Theme.Colors.steel)
+                .brutalistBorder()
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
     }
 }
 
@@ -516,25 +499,26 @@ struct StatBox: View {
     let unit: String
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(Theme.Fonts.label(size: 9))
+                .foregroundColor(Theme.Colors.ash)
+                .tracking(1)
 
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.title3)
-                    .fontWeight(.semibold)
+                    .font(Theme.Fonts.mono(size: 20))
+                    .foregroundColor(Theme.Colors.bone)
 
                 Text(unit)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(Theme.Fonts.label(size: 9))
+                    .foregroundColor(Theme.Colors.chalk)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(Theme.Spacing.md)
+        .background(Theme.Colors.steel)
+        .brutalistBorder()
     }
 }
 

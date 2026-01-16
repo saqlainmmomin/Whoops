@@ -2,6 +2,9 @@ import SwiftUI
 import Combine
 import SwiftData
 
+// MARK: - Brutalist Timeline
+// Raw data history. Hard edges. Industrial grid.
+
 struct TimelineView: View {
     @EnvironmentObject var healthKitManager: HealthKitManager
     @Environment(\.modelContext) private var modelContext
@@ -15,21 +18,27 @@ struct TimelineView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if viewModel.isLoading && viewModel.dailyMetrics.isEmpty {
-                    loadingView
-                } else if viewModel.dailyMetrics.isEmpty {
-                    emptyView
-                } else {
-                    timelineList
+            ZStack {
+                Theme.Colors.void.ignoresSafeArea()
+
+                Group {
+                    if viewModel.isLoading && viewModel.dailyMetrics.isEmpty {
+                        loadingView
+                    } else if viewModel.dailyMetrics.isEmpty {
+                        emptyView
+                    } else {
+                        timelineList
+                    }
                 }
             }
-            .navigationTitle("Timeline")
+            .navigationTitle("TIMELINE")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.Colors.void, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         if isCompareMode {
-                            // Exit compare mode
                             isCompareMode = false
                             compareFirstDay = nil
                             compareSecondDay = nil
@@ -38,13 +47,15 @@ struct TimelineView: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: isCompareMode ? "xmark.circle.fill" : "arrow.left.arrow.right")
+                            Image(systemName: isCompareMode ? "xmark" : "arrow.left.arrow.right")
+                                .font(.system(size: 14, weight: .bold))
                             if isCompareMode {
-                                Text("Cancel")
-                                    .font(.subheadline)
+                                Text("CANCEL")
+                                    .font(Theme.Fonts.label(size: 10))
+                                    .tracking(1)
                             }
                         }
-                        .foregroundColor(isCompareMode ? .red : Theme.Colors.neonTeal)
+                        .foregroundColor(isCompareMode ? Theme.Colors.rust : Theme.Colors.bone)
                     }
                 }
 
@@ -53,22 +64,23 @@ struct TimelineView: View {
                         Button {
                             viewModel.timeRange = .week
                         } label: {
-                            Label("Last 7 Days", systemImage: viewModel.timeRange == .week ? "checkmark" : "")
+                            Label("7 DAYS", systemImage: viewModel.timeRange == .week ? "checkmark" : "")
                         }
 
                         Button {
                             viewModel.timeRange = .month
                         } label: {
-                            Label("Last 28 Days", systemImage: viewModel.timeRange == .month ? "checkmark" : "")
+                            Label("28 DAYS", systemImage: viewModel.timeRange == .month ? "checkmark" : "")
                         }
 
                         Button {
                             viewModel.timeRange = .quarter
                         } label: {
-                            Label("Last 90 Days", systemImage: viewModel.timeRange == .quarter ? "checkmark" : "")
+                            Label("90 DAYS", systemImage: viewModel.timeRange == .quarter ? "checkmark" : "")
                         }
                     } label: {
                         Image(systemName: "calendar")
+                            .foregroundColor(Theme.Colors.bone)
                     }
                 }
             }
@@ -102,50 +114,49 @@ struct TimelineView: View {
 
     private var comparisonSelectionBar: some View {
         VStack(spacing: 0) {
-            Divider()
+            Rectangle()
+                .fill(Theme.Colors.graphite)
+                .frame(height: 1)
 
-            HStack(spacing: 16) {
-                // First day slot
-                daySlot(day: compareFirstDay, label: "1st Day", slotNumber: 1)
+            HStack(spacing: Theme.Spacing.md) {
+                daySlot(day: compareFirstDay, label: "1ST", slotNumber: 1)
 
-                Image(systemName: "arrow.left.arrow.right")
-                    .foregroundColor(Theme.Colors.textGray)
-                    .font(.system(size: 14))
+                Text("VS")
+                    .font(Theme.Fonts.mono(size: 12))
+                    .foregroundColor(Theme.Colors.chalk)
 
-                // Second day slot
-                daySlot(day: compareSecondDay, label: "2nd Day", slotNumber: 2)
+                daySlot(day: compareSecondDay, label: "2ND", slotNumber: 2)
 
                 Spacer()
 
-                // Compare button
                 Button {
                     showingComparison = true
                 } label: {
-                    Text("Compare")
-                        .font(.subheadline.bold())
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                    Text("COMPARE")
+                        .font(Theme.Fonts.mono(size: 12))
+                        .tracking(1)
+                        .foregroundColor(Theme.Colors.void)
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
                         .background(
                             (compareFirstDay != nil && compareSecondDay != nil)
-                            ? Theme.Colors.neonTeal
-                            : Theme.Colors.textGray
+                            ? Theme.Colors.bone
+                            : Theme.Colors.ash
                         )
-                        .cornerRadius(8)
                 }
                 .disabled(compareFirstDay == nil || compareSecondDay == nil)
             }
-            .padding()
-            .background(Theme.Colors.panelGray)
+            .padding(Theme.Spacing.md)
+            .background(Theme.Colors.concrete)
         }
     }
 
     private func daySlot(day: DailyMetrics?, label: String, slotNumber: Int) -> some View {
         VStack(spacing: 2) {
             if let day = day {
-                Text(day.date.formatted(.dateTime.month(.abbreviated).day()))
-                    .font(Theme.Fonts.tensor(size: 14))
-                    .foregroundColor(.white)
+                Text(day.date.formatted(.dateTime.month(.abbreviated).day()).uppercased())
+                    .font(Theme.Fonts.mono(size: 12))
+                    .foregroundColor(Theme.Colors.bone)
 
                 Button {
                     if slotNumber == 1 {
@@ -154,33 +165,29 @@ struct TimelineView: View {
                         compareSecondDay = nil
                     }
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.Colors.textGray)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Theme.Colors.rust)
                 }
             } else {
                 Text(label)
-                    .font(Theme.Fonts.label(size: 12))
-                    .foregroundColor(Theme.Colors.textGray)
-
-                Text("Tap a day")
                     .font(Theme.Fonts.label(size: 10))
-                    .foregroundColor(Theme.Colors.textGray.opacity(0.6))
+                    .foregroundColor(Theme.Colors.chalk)
+                    .tracking(1)
+
+                Text("TAP DAY")
+                    .font(Theme.Fonts.label(size: 8))
+                    .foregroundColor(Theme.Colors.ash)
             }
         }
         .frame(width: 70)
-        .padding(.vertical, 8)
-        .background(day != nil ? Theme.Colors.neonTeal.opacity(0.1) : Color.clear)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(day != nil ? Theme.Colors.neonTeal : Theme.Colors.textGray.opacity(0.3), lineWidth: 1)
-        )
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(day != nil ? Theme.Colors.steel : Theme.Colors.concrete)
+        .brutalistBorder(day != nil ? Theme.Colors.bone : Theme.Colors.graphite)
     }
 
     private func handleDayTap(_ day: DailyMetrics) {
         if isCompareMode {
-            // In compare mode, add to selection
             if compareFirstDay == nil {
                 compareFirstDay = day
             } else if compareSecondDay == nil {
@@ -188,11 +195,9 @@ struct TimelineView: View {
                     compareSecondDay = day
                 }
             } else {
-                // Both slots full - replace second
                 compareSecondDay = day
             }
         } else {
-            // Normal mode - show detail
             selectedDay = day
         }
     }
@@ -200,7 +205,7 @@ struct TimelineView: View {
     // MARK: - Timeline List
 
     private var timelineList: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 ForEach(groupedByWeek, id: \.0) { weekStart, days in
                     Section {
@@ -212,10 +217,10 @@ struct TimelineView: View {
                             )
                             .onTapGesture { handleDayTap(day) }
 
-                            if day.id != days.last?.id {
-                                Divider()
-                                    .padding(.leading, 60)
-                            }
+                            Rectangle()
+                                .fill(Theme.Colors.graphite)
+                                .frame(height: 1)
+                                .padding(.leading, 60)
                         }
                     } header: {
                         weekHeader(weekStart)
@@ -224,6 +229,7 @@ struct TimelineView: View {
 
                 if viewModel.isLoading {
                     ProgressView()
+                        .tint(Theme.Colors.bone)
                         .padding()
                 }
             }
@@ -235,65 +241,68 @@ struct TimelineView: View {
     private func weekHeader(_ startDate: Date) -> some View {
         HStack {
             Text(weekRangeString(from: startDate))
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
+                .font(Theme.Fonts.mono(size: 11))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(1)
 
             Spacer()
 
-            // Week summary
             if let weekSummary = viewModel.weekSummary(for: startDate) {
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Spacing.sm) {
                     if let avgRecovery = weekSummary.averageRecovery {
                         HStack(spacing: 2) {
-                            Image(systemName: "arrow.up.heart")
-                                .font(.caption2)
+                            Text("R")
+                                .font(Theme.Fonts.mono(size: 10))
                             Text("\(avgRecovery)")
-                                .font(.caption)
+                                .font(Theme.Fonts.mono(size: 10))
                         }
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.Colors.bone)
                     }
 
                     if let avgStrain = weekSummary.averageStrain {
                         HStack(spacing: 2) {
-                            Image(systemName: "flame")
-                                .font(.caption2)
+                            Text("S")
+                                .font(Theme.Fonts.mono(size: 10))
                             Text("\(avgStrain)")
-                                .font(.caption)
+                                .font(Theme.Fonts.mono(size: 10))
                         }
-                        .foregroundColor(.orange)
+                        .foregroundColor(avgStrain >= 67 ? Theme.Colors.rust : Theme.Colors.chalk)
                     }
                 }
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(.systemGroupedBackground))
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(Theme.Colors.steel)
     }
 
     // MARK: - Supporting Views
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.Spacing.md) {
             ProgressView()
-            Text("Loading timeline...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .tint(Theme.Colors.bone)
+            Text("LOADING...")
+                .font(Theme.Fonts.mono(size: 12))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(2)
         }
     }
 
     private var emptyView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "calendar.badge.exclamationmark")
-                .font(.largeTitle)
-                .foregroundColor(.secondary)
+                .font(.system(size: 32))
+                .foregroundColor(Theme.Colors.chalk)
 
-            Text("No Data Available")
-                .font(.headline)
+            Text("NO DATA")
+                .font(Theme.Fonts.header(size: 18))
+                .foregroundColor(Theme.Colors.bone)
 
-            Text("Start wearing your Apple Watch to begin collecting health data.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            Text("WEAR APPLE WATCH TO COLLECT DATA")
+                .font(Theme.Fonts.mono(size: 11))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(1)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -305,7 +314,6 @@ struct TimelineView: View {
         let grouped = Dictionary(grouping: viewModel.dailyMetrics) { metrics in
             DateHelpers.startOfWeek(metrics.date)
         }
-
         return grouped.sorted { $0.key > $1.key }.map { ($0.key, $0.value.sorted { $0.date > $1.date }) }
     }
 
@@ -313,11 +321,7 @@ struct TimelineView: View {
         let endDate = Calendar.current.date(byAdding: .day, value: 6, to: startDate)!
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
-
-        let startStr = formatter.string(from: startDate)
-        let endStr = formatter.string(from: endDate)
-
-        return "\(startStr) - \(endStr)"
+        return "\(formatter.string(from: startDate).uppercased()) — \(formatter.string(from: endDate).uppercased())"
     }
 
     private func selectionNumber(for day: DailyMetrics) -> Int? {
@@ -335,102 +339,91 @@ struct DayRow: View {
     var selectionNumber: Int? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Date column with selection indicator
+        HStack(spacing: Theme.Spacing.md) {
+            // Date column
             ZStack {
-                VStack(spacing: 2) {
+                VStack(spacing: 0) {
                     Text(dayOfWeek)
-                        .font(.caption)
-                        .foregroundColor(isSelected ? Theme.Colors.neonTeal : .secondary)
+                        .font(Theme.Fonts.label(size: 9))
+                        .foregroundColor(isSelected ? Theme.Colors.bone : Theme.Colors.chalk)
+                        .tracking(1)
 
                     Text(dayNumber)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(isSelected ? Theme.Colors.neonTeal : .primary)
+                        .font(Theme.Fonts.display(size: 24))
+                        .foregroundColor(isSelected ? Theme.Colors.bone : Theme.Colors.bone)
                 }
 
                 if let number = selectionNumber {
                     Text("\(number)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 16, height: 16)
-                        .background(Theme.Colors.neonTeal)
-                        .clipShape(Circle())
-                        .offset(x: 18, y: -12)
+                        .font(Theme.Fonts.mono(size: 9))
+                        .foregroundColor(Theme.Colors.void)
+                        .frame(width: 14, height: 14)
+                        .background(Theme.Colors.bone)
+                        .offset(x: 16, y: -10)
                 }
             }
             .frame(width: 44)
 
-            // Scores
-            HStack(spacing: 16) {
-                // Recovery
-                scoreIndicator(
+            // Scores row
+            HStack(spacing: Theme.Spacing.md) {
+                scoreCell(
+                    label: "R",
                     value: metrics.recoveryScore?.score,
-                    icon: "arrow.up.heart.fill",
-                    color: recoveryColor
+                    isCritical: (metrics.recoveryScore?.score ?? 100) <= 33
                 )
 
-                // Strain
-                scoreIndicator(
+                scoreCell(
+                    label: "S",
                     value: metrics.strainScore?.score,
-                    icon: "flame.fill",
-                    color: strainColor
+                    isCritical: (metrics.strainScore?.score ?? 0) >= 67
                 )
 
-                // Sleep
                 if let sleep = metrics.sleep?.totalSleepHours {
-                    VStack(spacing: 2) {
-                        Image(systemName: "bed.double.fill")
-                            .font(.caption)
-                            .foregroundColor(.purple)
+                    VStack(spacing: 0) {
+                        Text("SLP")
+                            .font(Theme.Fonts.label(size: 8))
+                            .foregroundColor(Theme.Colors.ash)
 
                         Text(formatHours(sleep))
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .font(Theme.Fonts.mono(size: 12))
+                            .foregroundColor(Theme.Colors.chalk)
                     }
                 }
             }
 
             Spacer()
 
-            // Data quality indicator
             if metrics.dataQuality.hasGaps {
-                Image(systemName: "exclamationmark.circle")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 10))
+                    .foregroundColor(Theme.Colors.rust)
             }
 
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Theme.Colors.ash)
         }
-        .padding()
+        .padding(Theme.Spacing.md)
         .background(
-            isSelected ? Theme.Colors.neonTeal.opacity(0.1) :
-            (metrics.date.isToday ? Color.blue.opacity(0.05) : Color.clear)
-        )
-        .overlay(
-            isSelected ?
-            RoundedRectangle(cornerRadius: 0)
-                .stroke(Theme.Colors.neonTeal.opacity(0.3), lineWidth: 1)
-            : nil
+            isSelected ? Theme.Colors.steel :
+            (metrics.date.isToday ? Theme.Colors.concrete : Theme.Colors.void)
         )
     }
 
-    private func scoreIndicator(value: Int?, icon: String, color: Color) -> some View {
-        VStack(spacing: 2) {
-            Image(systemName: icon)
-                .font(.caption)
-                .foregroundColor(color)
+    private func scoreCell(label: String, value: Int?, isCritical: Bool) -> some View {
+        VStack(spacing: 0) {
+            Text(label)
+                .font(Theme.Fonts.label(size: 8))
+                .foregroundColor(Theme.Colors.ash)
 
             if let score = value {
                 Text("\(score)")
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(Theme.Fonts.mono(size: 14))
+                    .foregroundColor(isCritical ? Theme.Colors.rust : Theme.Colors.bone)
             } else {
                 Text("--")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(Theme.Fonts.mono(size: 14))
+                    .foregroundColor(Theme.Colors.ash)
             }
         }
     }
@@ -438,7 +431,7 @@ struct DayRow: View {
     private var dayOfWeek: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE"
-        return formatter.string(from: metrics.date)
+        return formatter.string(from: metrics.date).uppercased()
     }
 
     private var dayNumber: String {
@@ -447,28 +440,10 @@ struct DayRow: View {
         return formatter.string(from: metrics.date)
     }
 
-    private var recoveryColor: Color {
-        guard let score = metrics.recoveryScore?.score else { return .gray }
-        switch score {
-        case 0...33: return .red
-        case 34...66: return .yellow
-        default: return .green
-        }
-    }
-
-    private var strainColor: Color {
-        guard let score = metrics.strainScore?.score else { return .gray }
-        switch score {
-        case 0...33: return .blue
-        case 34...66: return .orange
-        default: return .red
-        }
-    }
-
     private func formatHours(_ hours: Double) -> String {
         let h = Int(hours)
         let m = Int((hours - Double(h)) * 60)
-        return "\(h)h\(m)m"
+        return "\(h)H\(m)M"
     }
 }
 
@@ -483,78 +458,63 @@ struct DayDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.Colors.sovereignBlack.ignoresSafeArea()
+                Theme.Colors.void.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
+                    VStack(spacing: Theme.Spacing.lg) {
                         // Date header
-                        VStack(spacing: 4) {
-                            Text(metrics.date.formattedDate)
-                                .font(Theme.Fonts.header(size: 20))
-                                .foregroundColor(.white)
+                        VStack(spacing: 2) {
+                            Text(metrics.date.formattedDate.uppercased())
+                                .font(Theme.Fonts.header(size: 18))
+                                .foregroundColor(Theme.Colors.bone)
 
-                            Text(metrics.date.relativeDescription)
-                                .font(Theme.Fonts.tensor(size: 14))
-                                .foregroundColor(Theme.Colors.textGray)
+                            Text(metrics.date.relativeDescription.uppercased())
+                                .font(Theme.Fonts.mono(size: 11))
+                                .foregroundColor(Theme.Colors.chalk)
+                                .tracking(1)
                         }
                         .padding(.top)
 
-                        // Main scores with gauges
-                        HStack(spacing: 20) {
+                        // Main scores
+                        HStack(spacing: Theme.Spacing.md) {
                             if let recovery = metrics.recoveryScore {
-                                VStack(spacing: 8) {
-                                    SovereignGauge(
-                                        score: recovery.score,
-                                        type: .recovery,
-                                        size: 100
-                                    )
-                                    Text(recovery.category.rawValue)
-                                        .font(Theme.Fonts.label(size: 12))
-                                        .foregroundColor(Theme.Colors.textGray)
-                                }
+                                scoreBlock(
+                                    label: "RECOVERY",
+                                    score: recovery.score,
+                                    category: recovery.category.rawValue,
+                                    isCritical: recovery.score <= 33
+                                )
                             }
 
                             if let strain = metrics.strainScore {
-                                VStack(spacing: 8) {
-                                    SovereignGauge(
-                                        score: strain.score,
-                                        type: .strain,
-                                        size: 100
-                                    )
-                                    Text(strain.category.rawValue)
-                                        .font(Theme.Fonts.label(size: 12))
-                                        .foregroundColor(Theme.Colors.textGray)
-                                }
+                                scoreBlock(
+                                    label: "STRAIN",
+                                    score: strain.score,
+                                    category: strain.category.rawValue,
+                                    isCritical: strain.score >= 67
+                                )
                             }
                         }
 
-                        // Heart metrics row
-                        HStack(spacing: 16) {
-                            if let hrv = metrics.hrv?.nightlySDNN ?? metrics.hrv?.averageSDNN {
-                                metricBox(label: "HRV", value: "\(Int(hrv))", unit: "ms", color: Theme.Colors.neonTeal)
-                            }
+                        // Metrics grid
+                        metricsSection
 
-                            if let rhr = metrics.heartRate?.restingBPM {
-                                metricBox(label: "RHR", value: "\(Int(rhr))", unit: "bpm", color: Theme.Colors.neonRed)
-                            }
-                        }
-
-                        // Sleep section
+                        // Sleep
                         if let sleep = metrics.sleep {
                             sleepSection(sleep)
                         }
 
-                        // HR Zones section
+                        // HR Zones
                         if let zones = metrics.zoneDistribution, zones.totalMinutes > 0 {
                             hrZonesSection(zones)
                         }
 
-                        // Workouts section
+                        // Workouts
                         if let workouts = metrics.workouts, workouts.totalWorkouts > 0 {
                             workoutsSection(workouts)
                         }
 
-                        // Activity section
+                        // Activity
                         if let activity = metrics.activity {
                             activitySection(activity)
                         }
@@ -562,176 +522,208 @@ struct DayDetailView: View {
                         // Data quality
                         dataQualitySection(metrics.dataQuality)
                     }
-                    .padding()
+                    .padding(Theme.Spacing.md)
                 }
             }
-            .navigationTitle("Day Detail")
+            .navigationTitle("DETAIL")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Theme.Colors.sovereignBlack, for: .navigationBar)
+            .toolbarBackground(Theme.Colors.void, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundColor(Theme.Colors.neonTeal)
+                    Button("DONE") { dismiss() }
+                        .font(Theme.Fonts.mono(size: 12))
+                        .foregroundColor(Theme.Colors.bone)
                 }
             }
         }
+    }
+
+    private func scoreBlock(label: String, score: Int, category: String, isCritical: Bool) -> some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Text(label)
+                .font(Theme.Fonts.label(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
+                .tracking(2)
+
+            Text("\(score)")
+                .font(Theme.Fonts.display(size: 48))
+                .foregroundColor(isCritical ? Theme.Colors.rust : Theme.Colors.bone)
+
+            Text(category.uppercased())
+                .font(Theme.Fonts.mono(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Theme.Spacing.md)
+        .background(Theme.Colors.concrete)
+        .brutalistBorder(isCritical ? Theme.Colors.rust : Theme.Colors.graphite)
+    }
+
+    private var metricsSection: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if let hrv = metrics.hrv?.nightlySDNN ?? metrics.hrv?.averageSDNN {
+                metricCell(label: "HRV", value: "\(Int(hrv))", unit: "MS")
+            }
+
+            if let rhr = metrics.heartRate?.restingBPM {
+                metricCell(label: "RHR", value: "\(Int(rhr))", unit: "BPM")
+            }
+        }
+    }
+
+    private func metricCell(label: String, value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(label)
+                .font(Theme.Fonts.label(size: 9))
+                .foregroundColor(Theme.Colors.ash)
+                .tracking(1)
+
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(Theme.Fonts.mono(size: 20))
+                    .foregroundColor(Theme.Colors.bone)
+
+                Text(unit)
+                    .font(Theme.Fonts.label(size: 9))
+                    .foregroundColor(Theme.Colors.chalk)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.sm)
+        .background(Theme.Colors.steel)
+        .brutalistBorder()
     }
 
     // MARK: - Sleep Section
 
     private func sleepSection(_ sleep: DailySleepSummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             sectionHeader("SLEEP")
 
-            HStack(spacing: 16) {
-                metricBox(label: "Duration", value: formatHours(sleep.totalSleepHours), unit: "", color: Theme.Colors.neonGreen)
-                metricBox(label: "Efficiency", value: "\(Int(sleep.averageEfficiency))", unit: "%", color: Theme.Colors.neonGreen)
-                if sleep.totalInterruptions > 0 {
-                    metricBox(label: "Interruptions", value: "\(sleep.totalInterruptions)", unit: "", color: Theme.Colors.neonGold)
-                }
+            HStack(spacing: Theme.Spacing.sm) {
+                metricCell(label: "DURATION", value: formatHours(sleep.totalSleepHours), unit: "")
+                metricCell(label: "EFFICIENCY", value: "\(Int(sleep.averageEfficiency))", unit: "%")
             }
 
-            // Sleep stages
-            VStack(spacing: 8) {
-                stageRow("Deep", minutes: sleep.combinedStageBreakdown.deepMinutes, color: .indigo, ideal: "13-23%", actual: sleep.combinedStageBreakdown.deepPercentage)
-                stageRow("Core", minutes: sleep.combinedStageBreakdown.coreMinutes, color: .blue, ideal: "50-60%", actual: sleep.combinedStageBreakdown.corePercentage)
-                stageRow("REM", minutes: sleep.combinedStageBreakdown.remMinutes, color: .cyan, ideal: "20-25%", actual: sleep.combinedStageBreakdown.remPercentage)
-                if sleep.combinedStageBreakdown.awakeMinutes > 0 {
-                    stageRow("Awake", minutes: sleep.combinedStageBreakdown.awakeMinutes, color: .orange, ideal: nil, actual: nil)
-                }
+            // Stages
+            VStack(spacing: Theme.Spacing.xs) {
+                stageBar("DEEP", pct: sleep.combinedStageBreakdown.deepPercentage)
+                stageBar("CORE", pct: sleep.combinedStageBreakdown.corePercentage)
+                stageBar("REM", pct: sleep.combinedStageBreakdown.remPercentage)
             }
-            .padding()
-            .background(Theme.Colors.panelGray)
-            .cornerRadius(12)
+            .padding(Theme.Spacing.sm)
+            .background(Theme.Colors.steel)
+            .brutalistBorder()
         }
     }
 
-    private func stageRow(_ name: String, minutes: Int, color: Color, ideal: String?, actual: Double?) -> some View {
-        HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-
+    private func stageBar(_ name: String, pct: Double) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
             Text(name)
-                .font(Theme.Fonts.tensor(size: 14))
-                .foregroundColor(.white)
+                .font(Theme.Fonts.label(size: 9))
+                .foregroundColor(Theme.Colors.chalk)
+                .frame(width: 40, alignment: .leading)
 
-            Spacer()
-
-            Text(formatMinutes(minutes))
-                .font(Theme.Fonts.tensor(size: 14))
-                .foregroundColor(.white)
-
-            if let percentage = actual {
-                Text("(\(Int(percentage))%)")
-                    .font(Theme.Fonts.label(size: 12))
-                    .foregroundColor(Theme.Colors.textGray)
-                    .frame(width: 45, alignment: .trailing)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Theme.Colors.graphite)
+                    Rectangle()
+                        .fill(Theme.Colors.bone)
+                        .frame(width: geo.size.width * CGFloat(pct) / 100)
+                }
             }
+            .frame(height: 6)
+
+            Text("\(Int(pct))%")
+                .font(Theme.Fonts.mono(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
+                .frame(width: 35, alignment: .trailing)
         }
     }
 
     // MARK: - HR Zones Section
 
     private func hrZonesSection(_ zones: ZoneTimeDistribution) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("HEART RATE ZONES")
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            sectionHeader("HR ZONES")
 
-            VStack(spacing: 8) {
-                zoneRow("Zone 1 (Recovery)", minutes: zones.zone1Minutes, color: .gray, weight: "0.1x")
-                zoneRow("Zone 2 (Fat Burn)", minutes: zones.zone2Minutes, color: .blue, weight: "0.3x")
-                zoneRow("Zone 3 (Aerobic)", minutes: zones.zone3Minutes, color: .green, weight: "0.6x")
-                zoneRow("Zone 4 (Anaerobic)", minutes: zones.zone4Minutes, color: .orange, weight: "1.0x")
-                zoneRow("Zone 5 (Max)", minutes: zones.zone5Minutes, color: .red, weight: "1.5x")
+            VStack(spacing: Theme.Spacing.xs) {
+                zoneRow("Z1", minutes: zones.zone1Minutes)
+                zoneRow("Z2", minutes: zones.zone2Minutes)
+                zoneRow("Z3", minutes: zones.zone3Minutes)
+                zoneRow("Z4", minutes: zones.zone4Minutes)
+                zoneRow("Z5", minutes: zones.zone5Minutes, isCritical: true)
 
-                Divider().background(Theme.Colors.textGray.opacity(0.3))
+                Rectangle()
+                    .fill(Theme.Colors.graphite)
+                    .frame(height: 1)
 
                 HStack {
-                    Text("Total")
-                        .font(Theme.Fonts.tensor(size: 14))
-                        .foregroundColor(.white)
+                    Text("TOTAL")
+                        .font(Theme.Fonts.label(size: 10))
+                        .foregroundColor(Theme.Colors.chalk)
                     Spacer()
-                    Text("\(zones.totalMinutes) min")
-                        .font(Theme.Fonts.tensor(size: 14))
-                        .foregroundColor(Theme.Colors.neonTeal)
+                    Text("\(zones.totalMinutes) MIN")
+                        .font(Theme.Fonts.mono(size: 12))
+                        .foregroundColor(Theme.Colors.bone)
                 }
             }
-            .padding()
-            .background(Theme.Colors.panelGray)
-            .cornerRadius(12)
+            .padding(Theme.Spacing.sm)
+            .background(Theme.Colors.steel)
+            .brutalistBorder()
         }
     }
 
-    private func zoneRow(_ name: String, minutes: Int, color: Color, weight: String) -> some View {
+    private func zoneRow(_ name: String, minutes: Int, isCritical: Bool = false) -> some View {
         HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-
             Text(name)
-                .font(Theme.Fonts.tensor(size: 12))
-                .foregroundColor(.white)
-
-            Text(weight)
-                .font(Theme.Fonts.label(size: 10))
-                .foregroundColor(Theme.Colors.textGray)
+                .font(Theme.Fonts.mono(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
 
             Spacer()
 
-            Text("\(minutes) min")
-                .font(Theme.Fonts.tensor(size: 12))
-                .foregroundColor(.white)
+            Text("\(minutes) MIN")
+                .font(Theme.Fonts.mono(size: 10))
+                .foregroundColor(isCritical && minutes > 0 ? Theme.Colors.rust : Theme.Colors.bone)
         }
     }
 
     // MARK: - Workouts Section
 
     private func workoutsSection(_ workouts: DailyWorkoutSummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             sectionHeader("WORKOUTS (\(workouts.totalWorkouts))")
 
             ForEach(workouts.workouts) { workout in
                 HStack {
                     Image(systemName: workout.activityType.icon)
-                        .foregroundColor(Theme.Colors.neonRed)
-                        .frame(width: 24)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.Colors.rust)
+                        .frame(width: 20)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(workout.activityType.rawValue.capitalized)
-                            .font(Theme.Fonts.tensor(size: 14))
-                            .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(workout.activityType.rawValue.uppercased())
+                            .font(Theme.Fonts.mono(size: 11))
+                            .foregroundColor(Theme.Colors.bone)
 
                         Text(workout.formattedDuration)
-                            .font(Theme.Fonts.label(size: 12))
-                            .foregroundColor(Theme.Colors.textGray)
+                            .font(Theme.Fonts.label(size: 9))
+                            .foregroundColor(Theme.Colors.chalk)
                     }
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if let energy = workout.totalEnergyBurned {
-                            Text("\(Int(energy)) kcal")
-                                .font(Theme.Fonts.tensor(size: 12))
-                                .foregroundColor(.white)
-                        }
-
-                        if let avgHR = workout.averageHeartRate {
-                            Text("Avg HR: \(Int(avgHR))")
-                                .font(Theme.Fonts.label(size: 10))
-                                .foregroundColor(Theme.Colors.textGray)
-                        }
+                    if let energy = workout.totalEnergyBurned {
+                        Text("\(Int(energy)) KCAL")
+                            .font(Theme.Fonts.mono(size: 10))
+                            .foregroundColor(Theme.Colors.chalk)
                     }
                 }
-                .padding()
-                .background(Theme.Colors.panelGray)
-                .cornerRadius(8)
-            }
-
-            // Totals
-            HStack(spacing: 16) {
-                metricBox(label: "Duration", value: "\(workouts.totalDurationMinutes)", unit: "min", color: Theme.Colors.neonRed)
-                metricBox(label: "Energy", value: "\(Int(workouts.totalEnergyBurned))", unit: "kcal", color: Theme.Colors.neonRed)
+                .padding(Theme.Spacing.sm)
+                .background(Theme.Colors.steel)
+                .brutalistBorder()
             }
         }
     }
@@ -739,13 +731,12 @@ struct DayDetailView: View {
     // MARK: - Activity Section
 
     private func activitySection(_ activity: DailyActivitySummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             sectionHeader("ACTIVITY")
 
-            HStack(spacing: 16) {
-                metricBox(label: "Steps", value: "\(activity.steps)", unit: "", color: Theme.Colors.neonGold)
-                metricBox(label: "Active", value: "\(Int(activity.activeEnergy))", unit: "kcal", color: Theme.Colors.neonGold)
-                metricBox(label: "Distance", value: String(format: "%.1f", activity.distance), unit: "km", color: Theme.Colors.neonGold)
+            HStack(spacing: Theme.Spacing.sm) {
+                metricCell(label: "STEPS", value: "\(activity.steps)", unit: "")
+                metricCell(label: "ACTIVE", value: "\(Int(activity.activeEnergy))", unit: "KCAL")
             }
         }
     }
@@ -753,96 +744,51 @@ struct DayDetailView: View {
     // MARK: - Data Quality Section
 
     private func dataQualitySection(_ quality: DataQualityIndicator) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             sectionHeader("DATA QUALITY")
 
-            HStack(spacing: 16) {
-                qualityIndicator("Heart Rate", completeness: quality.heartRateCompleteness)
-                qualityIndicator("HRV", completeness: quality.hrvCompleteness)
-                qualityIndicator("Sleep", completeness: quality.sleepCompleteness)
-                qualityIndicator("Activity", completeness: quality.activityCompleteness)
+            HStack(spacing: Theme.Spacing.sm) {
+                qualityCell("HR", quality.heartRateCompleteness)
+                qualityCell("HRV", quality.hrvCompleteness)
+                qualityCell("SLP", quality.sleepCompleteness)
+                qualityCell("ACT", quality.activityCompleteness)
             }
-            .padding()
-            .background(Theme.Colors.panelGray)
-            .cornerRadius(12)
         }
     }
 
-    private func qualityIndicator(_ name: String, completeness: Double) -> some View {
-        VStack(spacing: 4) {
-            Circle()
-                .fill(qualityColor(completeness))
-                .frame(width: 12, height: 12)
+    private func qualityCell(_ label: String, _ completeness: Double) -> some View {
+        VStack(spacing: Theme.Spacing.xs) {
+            Text("\(Int(completeness * 100))%")
+                .font(Theme.Fonts.mono(size: 12))
+                .foregroundColor(completeness >= 0.75 ? Theme.Colors.bone : Theme.Colors.rust)
 
-            Text(name)
-                .font(Theme.Fonts.label(size: 10))
-                .foregroundColor(Theme.Colors.textGray)
+            Text(label)
+                .font(Theme.Fonts.label(size: 8))
+                .foregroundColor(Theme.Colors.ash)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func qualityColor(_ completeness: Double) -> Color {
-        switch completeness {
-        case 0.75...: return Theme.Colors.neonGreen
-        case 0.5..<0.75: return Theme.Colors.neonGold
-        default: return Theme.Colors.neonRed
-        }
+        .padding(Theme.Spacing.sm)
+        .background(Theme.Colors.steel)
+        .brutalistBorder()
     }
 
     // MARK: - Helpers
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(Theme.Fonts.label(size: 12))
-            .foregroundColor(Theme.Colors.textGray)
-            .tracking(1)
-    }
-
-    private func metricBox(label: String, value: String, unit: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(label)
-                .font(Theme.Fonts.label(size: 10))
-                .foregroundColor(Theme.Colors.textGray)
-
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(Theme.Fonts.tensor(size: 18))
-                    .foregroundColor(.white)
-
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(Theme.Fonts.label(size: 10))
-                        .foregroundColor(Theme.Colors.textGray)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Theme.Colors.panelGray)
-        .cornerRadius(8)
-        .overlay(
-            Rectangle()
-                .fill(color)
-                .frame(height: 2),
-            alignment: .top
-        )
+            .font(Theme.Fonts.label(size: 10))
+            .foregroundColor(Theme.Colors.chalk)
+            .tracking(2)
     }
 
     private func formatHours(_ hours: Double) -> String {
         let h = Int(hours)
         let m = Int((hours - Double(h)) * 60)
-        return "\(h)h \(m)m"
-    }
-
-    private func formatMinutes(_ minutes: Int) -> String {
-        let h = minutes / 60
-        let m = minutes % 60
-        if h > 0 {
-            return "\(h)h \(m)m"
-        }
-        return "\(m)m"
+        return "\(h)H \(m)M"
     }
 }
+
+// MARK: - Legacy ScoreCard (kept for compatibility)
 
 struct ScoreCard: View {
     let title: String
@@ -851,23 +797,23 @@ struct ScoreCard: View {
     let color: Color
 
     var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(spacing: Theme.Spacing.sm) {
+            Text(title.uppercased())
+                .font(Theme.Fonts.label(size: 10))
+                .foregroundColor(Theme.Colors.chalk)
 
             Text("\(score)")
-                .font(.system(size: 36, weight: .bold, design: .rounded))
-                .foregroundColor(color)
+                .font(Theme.Fonts.display(size: 32))
+                .foregroundColor(Theme.Colors.bone)
 
-            Text(category)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Text(category.uppercased())
+                .font(Theme.Fonts.mono(size: 9))
+                .foregroundColor(Theme.Colors.chalk)
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(Theme.Spacing.md)
+        .background(Theme.Colors.concrete)
+        .brutalistBorder()
     }
 }
 
