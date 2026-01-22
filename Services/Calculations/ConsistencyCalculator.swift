@@ -19,10 +19,6 @@ struct ConsistencyCalculator {
             )
         }
 
-        // Extract bedtimes and wake times as time intervals since reference date
-        let bedtimes = sleepSessions.map { $0.bedtime.timeIntervalSinceReferenceDate }
-        let wakeTimes = sleepSessions.map { $0.wakeTime.timeIntervalSinceReferenceDate }
-
         // Normalize to time-of-day (handle midnight crossings)
         let normalizedBedtimes = normalizeBedtimes(sleepSessions.map { $0.bedtime })
         let normalizedWakeTimes = normalizeWakeTimes(sleepSessions.map { $0.wakeTime })

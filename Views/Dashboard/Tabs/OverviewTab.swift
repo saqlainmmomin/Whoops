@@ -161,20 +161,19 @@ extension DashboardViewModel {
 
     /// Today's workouts as WorkoutEntry array
     var todayWorkouts: [WorkoutEntry]? {
-        guard let workouts = todayMetrics?.workouts,
-              workouts.totalWorkouts > 0 else { return nil }
+        guard let workoutSummary = todayMetrics?.workouts,
+              workoutSummary.totalWorkouts > 0 else { return nil }
 
         // Convert from DailyWorkoutSummary to WorkoutEntry array
-        // This is a simplified conversion - in real implementation, you'd have actual workout data
-        return workouts.sessions.map { session in
+        return workoutSummary.workouts.map { session in
             WorkoutEntry(
-                type: session.type.displayName,
+                type: session.activityType.rawValue,
                 startTime: session.startDate,
                 duration: session.duration,
-                strain: Double(session.strainContribution),
+                strain: 0, // Strain calculated separately
                 averageHeartRate: session.averageHeartRate,
                 maxHeartRate: session.maxHeartRate,
-                activeCalories: session.activeCalories
+                activeCalories: session.totalEnergyBurned
             )
         }
     }

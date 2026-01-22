@@ -246,16 +246,16 @@ struct BiometricDetailCard: View {
 
     private func trendIcon(for trend: TrendDirection) -> String {
         switch trend {
-        case .improving, .increasing: return "arrow.up.right"
-        case .declining, .decreasing: return "arrow.down.right"
+        case .improving: return "arrow.up.right"
+        case .declining: return "arrow.down.right"
         case .stable: return "arrow.right"
         }
     }
 
     private func trendColor(for trend: TrendDirection) -> Color {
         switch trend {
-        case .improving, .increasing: return Theme.Colors.optimal
-        case .declining, .decreasing: return Theme.Colors.caution
+        case .improving: return Theme.Colors.optimal
+        case .declining: return Theme.Colors.caution
         case .stable: return Theme.Colors.neutral
         }
     }

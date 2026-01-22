@@ -184,10 +184,10 @@ struct ComparisonMetric: View {
     }
 }
 
-// MARK: - Trend Badge
+// MARK: - Metric Trend Badge
 
-/// Badge showing trend direction
-struct TrendBadge: View {
+/// Badge showing trend direction for metric tiles
+struct MetricTrendBadge: View {
     let trend: TrendDirection
     let value: String?
 
@@ -210,16 +210,16 @@ struct TrendBadge: View {
 
     private var trendIcon: String {
         switch trend {
-        case .increasing: return "arrow.up"
-        case .decreasing: return "arrow.down"
+        case .improving: return "arrow.up"
+        case .declining: return "arrow.down"
         case .stable: return "minus"
         }
     }
 
     private var trendColor: Color {
         switch trend {
-        case .increasing: return Theme.Colors.optimal
-        case .decreasing: return Theme.Colors.caution
+        case .improving: return Theme.Colors.optimal
+        case .declining: return Theme.Colors.caution
         case .stable: return Theme.Colors.neutral
         }
     }

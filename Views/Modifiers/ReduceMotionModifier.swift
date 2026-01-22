@@ -108,25 +108,6 @@ extension View {
     }
 }
 
-// MARK: - Dynamic Type Support
-
-extension Theme.Fonts {
-    /// Body font with Dynamic Type support
-    static func dynamicBody(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .regular, design: .default)
-    }
-
-    /// Label font with Dynamic Type support
-    static func dynamicLabel(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .semibold, design: .default)
-    }
-
-    /// Display font with Dynamic Type support
-    static func dynamicDisplay(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .bold, design: .default)
-    }
-}
-
 // MARK: - High Contrast Mode
 
 struct HighContrastModifier: ViewModifier {

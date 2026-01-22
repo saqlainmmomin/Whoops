@@ -218,22 +218,22 @@ extension NotificationManager {
         let content = UNMutableNotificationContent()
 
         // HRV-based insight (SPECIFIC, not vague)
-        if let hrv = metrics.hrv,
-           let baseline = metrics.baseline?.hrvBaseline,
-           baseline > 0 {
-            let deviation = ((hrv.averageSDNN - baseline) / baseline) * 100
+        // Use hrvDeviation which is already calculated as a percentage/z-score
+        if let hrvDeviation = metrics.hrvDeviation {
+            // Convert z-score to approximate percentage for display
+            let deviationPercent = hrvDeviation * 10 // Rough approximation
 
-            if deviation >= 16 {
+            if deviationPercent >= 16 {
                 content.title = "Elevated HRV"
-                content.body = "HRV \(Int(deviation))% above baseline. Consider high-intensity session."
+                content.body = "HRV \(Int(deviationPercent))% above baseline. Consider high-intensity session."
                 content.sound = .default
                 content.categoryIdentifier = NotificationCategory.insight.rawValue
                 return content
             }
 
-            if deviation <= -20 {
+            if deviationPercent <= -20 {
                 content.title = "HRV Below Baseline"
-                content.body = "HRV \(Int(abs(deviation)))% below baseline. Prioritize recovery today."
+                content.body = "HRV \(Int(abs(deviationPercent)))% below baseline. Prioritize recovery today."
                 content.sound = .default
                 content.categoryIdentifier = NotificationCategory.insight.rawValue
                 return content
