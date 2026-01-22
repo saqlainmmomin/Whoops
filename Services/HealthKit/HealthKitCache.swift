@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Cache for HealthKit data to reduce redundant queries
 /// Uses NSCache for automatic memory management

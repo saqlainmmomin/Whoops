@@ -219,18 +219,6 @@ struct WeekNavigationHeader: View {
     }
 }
 
-// MARK: - Date Extension
-
-extension Date {
-    var isToday: Bool {
-        Calendar.current.isDateInToday(self)
-    }
-
-    var isYesterday: Bool {
-        Calendar.current.isDateInYesterday(self)
-    }
-}
-
 // MARK: - Preview
 
 #Preview("Date Headers") {

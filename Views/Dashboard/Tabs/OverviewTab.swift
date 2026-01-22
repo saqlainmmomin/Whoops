@@ -173,7 +173,7 @@ extension DashboardViewModel {
                 strain: 0, // Strain calculated separately
                 averageHeartRate: session.averageHeartRate,
                 maxHeartRate: session.maxHeartRate,
-                activeCalories: session.totalEnergyBurned
+                activeCalories: session.totalEnergyBurned ?? 0
             )
         }
     }
