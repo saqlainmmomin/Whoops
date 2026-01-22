@@ -33,6 +33,23 @@ struct DailyMetrics: Identifiable, Sendable {
     // Data Quality
     var dataQuality: DataQualityIndicator
 
+    // MARK: - Session 7: Whoop-Aligned Data Model
+
+    // Performance Output (strain-related)
+    var performanceOutput: PerformanceOutput?
+
+    // Readiness State (recovery-related)
+    var readinessState: ReadinessState?
+
+    // Autonomic Balance (HRV/RHR analysis)
+    var autonomicBalance: AutonomicBalance?
+
+    // Sleep Analysis (enhanced sleep metrics)
+    var sleepAnalysis: SleepAnalysis?
+
+    // Activity Data (daily activity summary)
+    var activityData: ActivityDataSummary?
+
     // Computed properties
     var hasHeartRateData: Bool { heartRate != nil }
     var hasHRVData: Bool { hrv != nil }
@@ -307,5 +324,235 @@ final class DailyMetricsRecord {
 
     nonisolated func getMetrics() throws -> DailyMetrics {
         try JSONDecoder().decode(DailyMetrics.self, from: metricsJSON)
+    }
+}
+
+// MARK: - Session 7: Whoop-Aligned Data Structures
+
+/// Performance Output - strain/workout metrics
+struct PerformanceOutput: Codable, Sendable {
+    let totalStrain: Double           // 0-21 scale (Whoop-style)
+    let hrZoneMinutes: [Int: Int]     // Zone (1-5) -> Minutes
+    let workoutDuration: TimeInterval
+    let activeEnergy: Double          // kcal
+    let workouts: [WorkoutEntry]
+
+    /// Get minutes for a specific HR zone
+    func minutes(for zone: HRZone) -> Int {
+        hrZoneMinutes[zone.rawValue] ?? 0
+    }
+
+    /// Total HR zone time in minutes
+    var totalZoneMinutes: Int {
+        hrZoneMinutes.values.reduce(0, +)
+    }
+}
+
+/// Individual workout entry
+struct WorkoutEntry: Codable, Sendable, Identifiable {
+    var id: Date { startTime }
+
+    let type: String
+    let startTime: Date
+    let duration: TimeInterval
+    let strain: Double
+    let averageHeartRate: Double?
+    let maxHeartRate: Double?
+    let activeCalories: Double
+
+    var durationMinutes: Int {
+        Int(duration / 60)
+    }
+
+    var durationFormatted: String {
+        let minutes = Int(duration / 60)
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        return "\(minutes)m"
+    }
+}
+
+/// Readiness State - recovery assessment
+struct ReadinessState: Codable, Sendable {
+    let recoveryScore: Int            // 0-100
+    let hrvDeviationMs: Double        // ms above/below baseline
+    let rhrDeviationBpm: Double       // bpm above/below baseline
+    let sleepQuality: Double          // 0-1 derived from performance
+    let previousDayStrain: Double     // Carryover load
+
+    var recoveryCategory: String {
+        switch recoveryScore {
+        case 70...100: return "Peak"
+        case 34..<70: return "Moderate"
+        default: return "Low"
+        }
+    }
+}
+
+/// Autonomic Balance - HRV/RHR analysis
+struct AutonomicBalance: Codable, Sendable {
+    let hrv: Double                   // ms (SDNN)
+    let hrvBaselineDeviation: Double  // percentage from baseline
+    let rhr: Double                   // bpm
+    let rhrBaselineDeviation: Double  // percentage from baseline
+
+    var hrvTrend: String {
+        if hrvBaselineDeviation >= 10 { return "Elevated" }
+        if hrvBaselineDeviation <= -10 { return "Suppressed" }
+        return "Normal"
+    }
+
+    var rhrTrend: String {
+        if rhrBaselineDeviation >= 10 { return "Elevated" }
+        if rhrBaselineDeviation <= -10 { return "Lower" }
+        return "Normal"
+    }
+}
+
+/// Sleep Analysis - comprehensive sleep metrics
+struct SleepAnalysis: Codable, Sendable {
+    let totalDuration: TimeInterval
+    let hoursNeeded: Double
+    let hoursVsNeed: Double           // ratio: actual/target
+    let efficiency: Double            // 0-1
+    let consistency: Double           // 0-1 (1 - variance)
+    let performanceScore: Double      // Calculated score 0-100
+    let bedtime: Date
+    let wakeTime: Date
+    let stages: SleepStages
+
+    var totalHours: Double {
+        totalDuration / 3600
+    }
+
+    var hoursVsNeedFormatted: String {
+        String(format: "%.1f:%.1f", totalHours, hoursNeeded)
+    }
+
+    var efficiencyPercent: Int {
+        Int(efficiency * 100)
+    }
+
+    var consistencyPercent: Int {
+        Int(consistency * 100)
+    }
+}
+
+/// Sleep stages breakdown
+struct SleepStages: Codable, Sendable {
+    let deepMinutes: Int
+    let remMinutes: Int
+    let coreMinutes: Int
+    let awakeMinutes: Int
+
+    var totalAsleepMinutes: Int {
+        deepMinutes + remMinutes + coreMinutes
+    }
+
+    var totalMinutes: Int {
+        deepMinutes + remMinutes + coreMinutes + awakeMinutes
+    }
+
+    func percentage(for stage: SleepStage) -> Double {
+        guard totalAsleepMinutes > 0 else { return 0 }
+        let minutes: Int
+        switch stage {
+        case .deep: minutes = deepMinutes
+        case .rem: minutes = remMinutes
+        case .core: minutes = coreMinutes
+        case .awake: minutes = awakeMinutes
+        default: minutes = 0
+        }
+        return Double(minutes) / Double(totalAsleepMinutes) * 100
+    }
+}
+
+/// Activity Data Summary
+struct ActivityDataSummary: Codable, Sendable {
+    let steps: Int
+    let distance: Double              // km
+    let activeEnergy: Double          // kcal
+    let basalEnergy: Double           // kcal
+
+    var totalEnergy: Double {
+        activeEnergy + basalEnergy
+    }
+
+    var distanceFormatted: String {
+        String(format: "%.1f km", distance)
+    }
+}
+
+// MARK: - Sleep Performance Result
+
+struct SleepPerformance: Codable, Sendable {
+    let score: Int                    // 0-100
+    let hoursVsNeed: Double           // ratio
+    let efficiency: Double            // 0-1
+    let consistency: Double           // 0-1
+
+    var category: String {
+        switch score {
+        case 80...100: return "Optimal"
+        case 60..<80: return "Adequate"
+        default: return "Poor"
+        }
+    }
+}
+
+// MARK: - Consistency Metrics
+
+struct ConsistencyMetrics: Codable, Sendable {
+    let bedtimeVariance: TimeInterval     // seconds (stdev)
+    let wakeTimeVariance: TimeInterval    // seconds (stdev)
+    let consistencyScore: Double          // 0-1
+    let insufficientData: Bool
+
+    var bedtimeVarianceHours: Double {
+        bedtimeVariance / 3600
+    }
+
+    var wakeTimeVarianceHours: Double {
+        wakeTimeVariance / 3600
+    }
+}
+
+// MARK: - Week Summary
+
+struct WeekSummary: Codable, Sendable {
+    let startDate: Date
+    let days: [DailyMetrics]
+    let avgRecovery: Double?
+    let avgStrain: Double?
+    let totalSleepHours: Double
+    let sleepConsistency: ConsistencyMetrics
+
+    var daysWithData: Int {
+        days.count
+    }
+}
+
+// MARK: - Strain Score (0-21 Whoop scale)
+
+struct StrainScore21: Codable, Sendable {
+    let score: Double                 // 0-21 scale
+    let hrZoneContribution: Double
+    let energyContribution: Double
+    let zoneBreakdown: [Int: Int]     // Zone -> Minutes
+
+    var normalizedScore: Int {
+        // Convert 0-21 to 0-100 for UI consistency
+        Int((score / 21.0) * 100)
+    }
+
+    var category: String {
+        switch score {
+        case 0..<7: return "Light"
+        case 7..<14: return "Moderate"
+        default: return "High"
+        }
     }
 }

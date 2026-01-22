@@ -1,10 +1,95 @@
 import Foundation
 
 /// Strain Score Engine: Inferred Metric with Full Transparency
-/// Calculates a 0-100 strain score based on cardiovascular load.
+/// Calculates strain score based on cardiovascular load.
+///
+/// Session 7 Update: Added Whoop-style 0-21 scale calculation
+/// Strain = (HR_zone_minutes × intensity_weight) + (active_energy / 100)
 struct StrainScoreEngine {
 
-    // MARK: - Main Calculation
+    // MARK: - Session 7: Whoop-Style Zone Weights (0-21 Scale)
+
+    static let whoopZoneWeights: [HRZone: Double] = [
+        .zone1: 0.1,  // Recovery
+        .zone2: 0.3,  // Endurance
+        .zone3: 0.5,  // Tempo
+        .zone4: 0.8,  // Threshold
+        .zone5: 1.0   // Max
+    ]
+
+    /// Calculate strain on 0-21 Whoop-style scale
+    /// - Parameters:
+    ///   - hrZoneMinutes: Dictionary of zone to minutes
+    ///   - activeEnergy: Active calories burned
+    /// - Returns: StrainScore21 with 0-21 scale score
+    static func calculateWhoopStrain(
+        hrZoneMinutes: [HRZone: Int],
+        activeEnergy: Double
+    ) -> StrainScore21 {
+        // Calculate weighted zone minutes
+        var weightedMinutes: Double = 0
+        var zoneBreakdown: [Int: Int] = [:]
+
+        for (zone, minutes) in hrZoneMinutes {
+            weightedMinutes += Double(minutes) * (whoopZoneWeights[zone] ?? 0)
+            zoneBreakdown[zone.rawValue] = minutes
+        }
+
+        // HR component: weighted minutes / 10 (normalize)
+        let hrComponent = weightedMinutes / 10
+
+        // Energy component: active energy / 100
+        let energyComponent = activeEnergy / 100
+
+        // Raw strain
+        let rawStrain = hrComponent + energyComponent
+
+        // Cap at 21 (Whoop max)
+        let normalizedStrain = min(21, rawStrain)
+
+        return StrainScore21(
+            score: normalizedStrain,
+            hrZoneContribution: hrComponent,
+            energyContribution: energyComponent,
+            zoneBreakdown: zoneBreakdown
+        )
+    }
+
+    /// Calculate strain from ZoneTimeDistribution
+    static func calculateWhoopStrain(
+        zoneDistribution: ZoneTimeDistribution,
+        activeEnergy: Double
+    ) -> StrainScore21 {
+        let hrZoneMinutes: [HRZone: Int] = [
+            .zone1: zoneDistribution.zone1Minutes,
+            .zone2: zoneDistribution.zone2Minutes,
+            .zone3: zoneDistribution.zone3Minutes,
+            .zone4: zoneDistribution.zone4Minutes,
+            .zone5: zoneDistribution.zone5Minutes
+        ]
+
+        return calculateWhoopStrain(hrZoneMinutes: hrZoneMinutes, activeEnergy: activeEnergy)
+    }
+
+    /// Calculate optimal strain target based on recovery
+    /// - Parameter recoveryScore: Current recovery score (0-100)
+    /// - Returns: Recommended strain target (0-21 scale)
+    static func calculateOptimalStrainTarget(recoveryScore: Int) -> Double {
+        // Higher recovery = higher strain capacity
+        switch recoveryScore {
+        case 70...100:
+            // Peak recovery: can handle high strain (14-21)
+            return 14.0 + (Double(recoveryScore - 70) / 30.0) * 7.0
+        case 34..<70:
+            // Moderate recovery: moderate strain (7-14)
+            return 7.0 + (Double(recoveryScore - 34) / 36.0) * 7.0
+        default:
+            // Low recovery: light strain only (0-7)
+            return Double(recoveryScore) / 33.0 * 7.0
+        }
+    }
+
+    // MARK: - Legacy Main Calculation (0-100 Scale)
 
     /// Calculate strain score with full component breakdown
     static func calculateStrainScore(

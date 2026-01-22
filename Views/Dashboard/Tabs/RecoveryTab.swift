@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Session 7: Whoop-aligned Recovery Tab
+/// Focus on recovery score breakdown with horizontal progress bars
 struct RecoveryTab: View {
     @ObservedObject var viewModel: DashboardViewModel
 
@@ -17,69 +19,111 @@ struct RecoveryTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                // Main recovery ring
-                RecoveryRing(
-                    score: Double(recoveryScore),
-                    category: viewModel.recoveryCategory,
-                    weeklyAverage: viewModel.weeklyRecoveryAvg
+            VStack(spacing: Theme.Spacing.moduleP) {
+
+                // Hero gauge (same as Overview)
+                CircularProgressGauge(
+                    value: Double(recoveryScore),
+                    color: Theme.Colors.recovery(score: recoveryScore),
+                    label: "Recovery",
+                    sublabel: nil
                 )
-                .padding(.top, Theme.Spacing.lg)
+                .frame(width: 180, height: 180)
 
-                // Recovery components breakdown
-                if let recovery = viewModel.todayMetrics?.recoveryScore {
-                    RecoveryComponentsCard(recovery: recovery)
-                        .padding(.horizontal)
-                }
-
-                // Biometrics row
-                HStack(spacing: Theme.Spacing.xl) {
-                    BiometricDetailCard(
-                        title: "HRV",
-                        value: String(format: "%.0f", hrvValue),
-                        unit: "ms",
-                        deviation: viewModel.hrvDeviationPercent,
-                        trend: viewModel.hrvTrend,
-                        sparklineData: viewModel.hrvSparklineData,
-                        positiveIsGood: true
+                // 4 horizontal progress bars (breakdown)
+                VStack(spacing: 16) {
+                    RecoveryComponentBar(
+                        label: "HRV Deviation",
+                        value: viewModel.hrvDeviationPercent ?? 0,
+                        suffix: "%",
+                        progress: hrvComponentProgress,
+                        color: Theme.Colors.hrv(deviationPercent: viewModel.hrvDeviationPercent ?? 0)
                     )
 
-                    BiometricDetailCard(
-                        title: "RHR",
-                        value: String(format: "%.0f", rhrValue),
-                        unit: "bpm",
-                        deviation: viewModel.rhrDeviationPercent,
-                        trend: viewModel.rhrTrend,
-                        sparklineData: viewModel.rhrSparklineData,
-                        positiveIsGood: false
+                    RecoveryComponentBar(
+                        label: "Resting HR Deviation",
+                        value: viewModel.rhrDeviationPercent ?? 0,
+                        suffix: "%",
+                        progress: rhrComponentProgress,
+                        color: (viewModel.rhrDeviationPercent ?? 0) < 0 ? Theme.Colors.optimal : Theme.Colors.caution
+                    )
+
+                    RecoveryComponentBar(
+                        label: "Sleep Quality",
+                        value: Double(sleepPerformance),
+                        suffix: "%",
+                        progress: Double(sleepPerformance) / 100,
+                        color: Theme.Colors.sleepPerformance(score: sleepPerformance)
+                    )
+
+                    RecoveryComponentBar(
+                        label: "Previous Day Strain",
+                        value: previousDayStrain,
+                        suffix: "",
+                        progress: previousDayStrain / 21,
+                        color: Theme.Colors.neutral
                     )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // Weekly trend
-                if !viewModel.recoverySparklineData.isEmpty {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("7-DAY RECOVERY TREND")
-                            .font(Theme.Fonts.label(11))
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                            .tracking(1)
+                // 7-day trend sparkline (REPLACES "VS. PREVIOUS 30 DAYS")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("7-DAY TREND")
+                        .font(Theme.Fonts.label(11))
+                        .foregroundColor(Theme.Colors.textSecondary)
 
+                    if !viewModel.recoverySparklineData.isEmpty {
                         SparklineChart(
                             data: viewModel.recoverySparklineData,
-                            color: Theme.Colors.recoveryColor(for: Double(recoveryScore))
+                            color: Theme.Colors.optimal
                         )
                         .frame(height: 60)
                     }
-                    .padding(.horizontal)
                 }
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                Spacer(minLength: Theme.Spacing.xl)
+                // Explanation text
+                Text("Recovery indicates autonomic nervous system balance. Higher HRV and lower RHR signal readiness.")
+                    .font(Theme.Fonts.body)
+                    .foregroundColor(Theme.Colors.textTertiary)
+                    .padding(.horizontal, Theme.Spacing.moduleP)
             }
-            .padding(.vertical, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.moduleP)
         }
-        .background(Theme.Colors.void)
+        .background(Theme.Colors.primary)
+    }
+
+    // MARK: - Computed Properties
+
+    private var hrvComponentProgress: Double {
+        guard let deviation = viewModel.hrvDeviationPercent else { return 0.5 }
+        // Normalize -30% to +30% to 0-1
+        return (deviation + 30) / 60
+    }
+
+    private var rhrComponentProgress: Double {
+        guard let deviation = viewModel.rhrDeviationPercent else { return 0.5 }
+        // Normalize -20% to +20% to 0-1 (inverted: lower is better)
+        return (-deviation + 20) / 40
+    }
+
+    private var sleepPerformance: Int {
+        guard let sleep = viewModel.todayMetrics?.sleep else { return 0 }
+        return Int(sleep.averageEfficiency)
+    }
+
+    private var previousDayStrain: Double {
+        // Get yesterday's strain from weekly metrics
+        guard viewModel.weeklyMetrics.count >= 2 else { return 0 }
+        let yesterdayIndex = viewModel.weeklyMetrics.count - 2
+        if let strain = viewModel.weeklyMetrics[yesterdayIndex].strainScore?.score {
+            return Double(strain) / 100.0 * 21.0
+        }
+        return 0
     }
 }
+
+// MARK: - Legacy Components (kept for backward compatibility)
 
 struct RecoveryComponentsCard: View {
     let recovery: RecoveryScore
@@ -121,7 +165,6 @@ struct ComponentRow: View {
                 .font(Theme.Fonts.mono(12))
                 .foregroundStyle(Theme.Colors.textPrimary)
 
-            // Progress indicator
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Rectangle()
@@ -151,18 +194,9 @@ struct BiometricDetailCard: View {
     private var deviationColor: Color {
         guard let dev = deviation else { return Theme.Colors.textTertiary }
         if positiveIsGood {
-            return dev >= 0 ? Theme.Colors.hrvPositive : Theme.Colors.hrvNegative
+            return dev >= 0 ? Theme.Colors.optimal : Theme.Colors.critical
         } else {
-            return dev <= 0 ? Theme.Colors.rhrPositive : Theme.Colors.rhrNegative
-        }
-    }
-
-    private var trendIcon: String {
-        switch trend {
-        case .improving: return "arrow.up.right"
-        case .declining: return "arrow.down.right"
-        case .stable: return "arrow.right"
-        case .none: return "minus"
+            return dev <= 0 ? Theme.Colors.optimal : Theme.Colors.caution
         }
     }
 
@@ -177,7 +211,7 @@ struct BiometricDetailCard: View {
                 Spacer()
 
                 if let t = trend {
-                    Image(systemName: trendIcon)
+                    Image(systemName: trendIcon(for: t))
                         .font(.system(size: 10))
                         .foregroundStyle(trendColor(for: t))
                 }
@@ -185,7 +219,7 @@ struct BiometricDetailCard: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(Theme.Fonts.mono(24))
+                    .font(Theme.Fonts.display(24))
                     .foregroundStyle(Theme.Colors.textPrimary)
 
                 Text(unit)
@@ -195,7 +229,7 @@ struct BiometricDetailCard: View {
 
             if let dev = deviation {
                 Text("\(dev >= 0 ? "+" : "")\(Int(dev))% from baseline")
-                    .font(Theme.Fonts.mono(10))
+                    .font(Theme.Fonts.label(10))
                     .foregroundStyle(deviationColor)
             }
 
@@ -206,19 +240,23 @@ struct BiometricDetailCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
+        .background(Theme.Colors.secondary)
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
-        )
+    }
+
+    private func trendIcon(for trend: TrendDirection) -> String {
+        switch trend {
+        case .improving, .increasing: return "arrow.up.right"
+        case .declining, .decreasing: return "arrow.down.right"
+        case .stable: return "arrow.right"
+        }
     }
 
     private func trendColor(for trend: TrendDirection) -> Color {
         switch trend {
-        case .improving: return Theme.Colors.hrvPositive
-        case .declining: return Theme.Colors.hrvNegative
-        case .stable: return Theme.Colors.textTertiary
+        case .improving, .increasing: return Theme.Colors.optimal
+        case .declining, .decreasing: return Theme.Colors.caution
+        case .stable: return Theme.Colors.neutral
         }
     }
 }

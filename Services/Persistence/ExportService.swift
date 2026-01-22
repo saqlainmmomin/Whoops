@@ -261,6 +261,7 @@ struct ExportFile {
 enum ExportError: LocalizedError {
     case encodingFailed
     case noData
+    case fileWriteFailed
 
     var errorDescription: String? {
         switch self {
@@ -268,6 +269,157 @@ enum ExportError: LocalizedError {
             return "Failed to encode export data"
         case .noData:
             return "No data available to export"
+        case .fileWriteFailed:
+            return "Failed to write export file"
         }
+    }
+}
+
+// MARK: - Session 7: Weekly CSV Export
+
+extension ExportService {
+
+    /// Export weekly summary with all raw metrics to a file URL
+    static func exportWeeklyCSV(weekStart: Date, metrics: [DailyMetrics]) throws -> URL {
+        let calendar = Calendar.current
+        let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+
+        // Filter metrics to the specified week
+        let weekMetrics = metrics.filter { metric in
+            metric.date >= weekStart && metric.date <= weekEnd
+        }.sorted { $0.date < $1.date }
+
+        guard !weekMetrics.isEmpty else {
+            throw ExportError.noData
+        }
+
+        // Build CSV content
+        var csv = "Date,Recovery,Strain,HRV,RHR,Sleep Hours,Sleep Performance,Consistency\n"
+
+        for metric in weekMetrics {
+            let date = metric.date.formatted(.iso8601.day().month().year())
+            let recovery = metric.recoveryScore?.score ?? 0
+            let strain = strainTo21Scale(metric.strainScore?.score ?? 0)
+            let hrv = metric.hrv?.nightlySDNN ?? metric.hrv?.averageSDNN ?? 0
+            let rhr = metric.heartRate?.restingBPM ?? 0
+            let sleepHours = metric.sleep?.totalSleepHours ?? 0
+            let sleepPerf = Int(metric.sleep?.averageEfficiency ?? 0)
+            let consistency = calculateConsistency(for: metric)
+
+            csv += "\(date),\(recovery),\(String(format: "%.1f", strain)),\(Int(hrv)),\(Int(rhr)),\(String(format: "%.1f", sleepHours)),\(sleepPerf),\(consistency)\n"
+        }
+
+        // Write to file
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let weekStartString = dateFormatter.string(from: weekStart)
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("whoops_week_\(weekStartString).csv")
+
+        do {
+            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            throw ExportError.fileWriteFailed
+        }
+    }
+
+    /// Export month summary
+    static func exportMonthlyCSV(month: Date, metrics: [DailyMetrics]) throws -> URL {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: month)
+        guard let monthStart = calendar.date(from: components),
+              let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) else {
+            throw ExportError.noData
+        }
+
+        let monthMetrics = metrics.filter { metric in
+            metric.date >= monthStart && metric.date <= monthEnd
+        }.sorted { $0.date < $1.date }
+
+        guard !monthMetrics.isEmpty else {
+            throw ExportError.noData
+        }
+
+        var csv = "Date,Day,Recovery,Strain,HRV,RHR,Sleep Hours,Deep Sleep,REM Sleep,Steps,Active Cal\n"
+
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEE"
+
+        for metric in monthMetrics {
+            let date = metric.date.formatted(.iso8601.day().month().year())
+            let dayName = dayFormatter.string(from: metric.date)
+            let recovery = metric.recoveryScore?.score ?? 0
+            let strain = strainTo21Scale(metric.strainScore?.score ?? 0)
+            let hrv = metric.hrv?.nightlySDNN ?? metric.hrv?.averageSDNN ?? 0
+            let rhr = metric.heartRate?.restingBPM ?? 0
+            let sleepHours = metric.sleep?.totalSleepHours ?? 0
+            let deepSleep = metric.sleep?.combinedStageBreakdown.deepMinutes ?? 0
+            let remSleep = metric.sleep?.combinedStageBreakdown.remMinutes ?? 0
+            let steps = metric.activity?.steps ?? 0
+            let activeCal = metric.activity?.activeEnergy ?? 0
+
+            csv += "\(date),\(dayName),\(recovery),\(String(format: "%.1f", strain)),\(Int(hrv)),\(Int(rhr)),\(String(format: "%.1f", sleepHours)),\(deepSleep),\(remSleep),\(steps),\(Int(activeCal))\n"
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM"
+        let monthString = dateFormatter.string(from: month)
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("whoops_month_\(monthString).csv")
+
+        do {
+            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            throw ExportError.fileWriteFailed
+        }
+    }
+
+    /// Export custom date range
+    static func exportDateRangeCSV(from startDate: Date, to endDate: Date, metrics: [DailyMetrics]) throws -> URL {
+        let rangeMetrics = metrics.filter { metric in
+            metric.date >= startDate && metric.date <= endDate
+        }.sorted { $0.date < $1.date }
+
+        guard !rangeMetrics.isEmpty else {
+            throw ExportError.noData
+        }
+
+        let csv = exportToCSV(metrics: rangeMetrics)
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let startString = dateFormatter.string(from: startDate)
+        let endString = dateFormatter.string(from: endDate)
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("whoops_\(startString)_to_\(endString).csv")
+
+        guard let data = csv.data(using: .utf8) else {
+            throw ExportError.encodingFailed
+        }
+
+        do {
+            try data.write(to: fileURL)
+            return fileURL
+        } catch {
+            throw ExportError.fileWriteFailed
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private static func strainTo21Scale(_ score: Int) -> Double {
+        // Convert from 0-100 internal scale to 0-21 display scale
+        return Double(score) / 100.0 * 21.0
+    }
+
+    private static func calculateConsistency(for metric: DailyMetrics) -> Int {
+        // Return consistency percentage if available
+        // This is a placeholder - actual implementation would use ConsistencyCalculator
+        return Int(metric.sleep?.averageEfficiency ?? 0)
     }
 }

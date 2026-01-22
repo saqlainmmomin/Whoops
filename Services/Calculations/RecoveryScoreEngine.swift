@@ -2,9 +2,80 @@ import Foundation
 
 /// Recovery Score Engine: Inferred Metric with Full Transparency
 /// Calculates a 0-100 recovery score based on physiological inputs.
+///
+/// Session 7 Update: New Whoop-aligned formula
+/// Recovery = 0.5×(HRV_deviation_percentile) + 0.3×(1-RHR_deviation_percentile) + 0.2×sleep_performance
 struct RecoveryScoreEngine {
 
-    // MARK: - Main Calculation
+    // MARK: - Session 7: Whoop-Aligned Calculation
+
+    /// Calculate recovery score using Whoop-aligned formula
+    /// - Parameters:
+    ///   - hrvDeviationPercent: HRV percentage deviation from baseline
+    ///   - rhrDeviationPercent: RHR percentage deviation from baseline
+    ///   - sleepPerformanceScore: Sleep performance score (0-100)
+    ///   - dataQuality: Data quality indicator
+    /// - Returns: ReadinessState with recovery score and components
+    static func calculateReadinessState(
+        hrvDeviationPercent: Double,
+        rhrDeviationPercent: Double,
+        sleepPerformanceScore: Int,
+        previousDayStrain: Double,
+        dataQuality: DataQualityIndicator
+    ) -> ReadinessState {
+        // HRV Component (50% weight)
+        // Higher HRV deviation = better recovery
+        // Normalize -30% to +30% range to 0-100
+        let hrvNormalized = StatisticalHelpers.normalizeToScale(
+            value: hrvDeviationPercent,
+            fromRange: Constants.RecoveryWeights.hrvDeviationPercentRange,
+            toRange: 0...100
+        )
+        let hrvContribution = hrvNormalized * Constants.RecoveryWeights.hrvDeviation
+
+        // RHR Component (30% weight)
+        // INVERTED: Lower RHR deviation = better recovery
+        // Normalize -20% to +20% range, then invert
+        let rhrNormalized = StatisticalHelpers.normalizeToScale(
+            value: -rhrDeviationPercent, // Invert: negative deviation is good
+            fromRange: Constants.RecoveryWeights.rhrDeviationPercentRange,
+            toRange: 0...100
+        )
+        let rhrContribution = rhrNormalized * Constants.RecoveryWeights.rhrDeviation
+
+        // Sleep Performance Component (20% weight)
+        let sleepContribution = Double(sleepPerformanceScore) * Constants.RecoveryWeights.sleepPerformance
+
+        // Total score
+        let totalScore = hrvContribution + rhrContribution + sleepContribution
+        let finalScore = StatisticalHelpers.clamp(Int(totalScore.rounded()), to: 0...100)
+
+        return ReadinessState(
+            recoveryScore: finalScore,
+            hrvDeviationMs: hrvDeviationPercent, // Store for display
+            rhrDeviationBpm: rhrDeviationPercent, // Store for display
+            sleepQuality: Double(sleepPerformanceScore) / 100.0,
+            previousDayStrain: previousDayStrain
+        )
+    }
+
+    /// Calculate recovery from AutonomicBalance and SleepPerformance
+    static func calculateReadinessState(
+        autonomicBalance: AutonomicBalance,
+        sleepPerformance: SleepPerformance,
+        previousDayStrain: Double,
+        dataQuality: DataQualityIndicator
+    ) -> ReadinessState {
+        calculateReadinessState(
+            hrvDeviationPercent: autonomicBalance.hrvBaselineDeviation,
+            rhrDeviationPercent: autonomicBalance.rhrBaselineDeviation,
+            sleepPerformanceScore: sleepPerformance.score,
+            previousDayStrain: previousDayStrain,
+            dataQuality: dataQuality
+        )
+    }
+
+    // MARK: - Legacy Main Calculation
 
     /// Calculate recovery score with full component breakdown
     static func calculateRecoveryScore(

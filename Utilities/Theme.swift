@@ -1,50 +1,109 @@
 import SwiftUI
 
-// MARK: - Premium Quantified Self Design System
-// Evolved from brutalist foundation to gradient-rich premium experience
+// MARK: - Session 7: Whoop-Aligned Design System
+// Semantic colors tied to physiological states
+// Single-color states, no competing gradients
 
 struct Theme {
 
-    // MARK: - Color Palette
+    // MARK: - Semantic Color System (Session 7)
     struct Colors {
         // Backgrounds (OLED black for battery efficiency)
+        static let primary = Color(hex: "#000000")       // OLED black
+        static let secondary = Color(hex: "#0A0A0A")     // Cards
+        static let tertiary = Color(hex: "#1C1C1E")      // Elevated surfaces
+
+        // Legacy background names (backward compatibility)
         static let void = Color(hex: "#000000")
         static let surface = Color(hex: "#0A0A0B")
         static let surfaceElevated = Color(hex: "#141416")
         static let surfaceCard = Color(hex: "#1C1C1F")
 
         // Text Hierarchy
-        static let textPrimary = Color(hex: "#FAFAFA")
-        static let textSecondary = Color(hex: "#A1A1AA")
-        static let textTertiary = Color(hex: "#71717A")
+        static let textPrimary = Color.white
+        static let textSecondary = Color(hex: "#A0A0A0")
+        static let textTertiary = Color(hex: "#666666")
 
         // Borders
         static let borderSubtle = Color(hex: "#27272A")
         static let borderMedium = Color(hex: "#3F3F46")
 
-        // Recovery States
+        // MARK: - Semantic Colors (Physiological States)
+        // NO YELLOW - redundant with orange
+        // NO PURPLE GLOW EFFECTS
+
+        /// Green: >80% sleep, HRV up, recovery 70-100
+        static let optimal = Color(hex: "#00FF41")
+
+        /// Blue: informational, time-based
+        static let neutral = Color(hex: "#4A9EFF")
+
+        /// Orange: debt accumulating, HRV below baseline
+        static let caution = Color(hex: "#FF9500")
+
+        /// Red: <60% sleep, high stress
+        static let critical = Color(hex: "#FF3B30")
+
+        // Legacy Recovery States (backward compatibility)
         static let recoveryPeak = Color(hex: "#00D26A")
         static let recoveryGood = Color(hex: "#7DD956")
         static let recoveryModerate = Color(hex: "#FFCC00")
         static let recoveryLow = Color(hex: "#FF6B35")
         static let recoveryCritical = Color(hex: "#FF3B30")
 
-        // Strain States
+        // Legacy Strain States (backward compatibility)
         static let strainLight = Color(hex: "#4ECDC4")
         static let strainModerate = Color(hex: "#45B7D1")
         static let strainHigh = Color(hex: "#5A67D8")
         static let strainOverreach = Color(hex: "#9F44D3")
 
-        // Biometrics
+        // Legacy Biometrics (backward compatibility)
         static let hrvPositive = Color(hex: "#10B981")
         static let hrvNegative = Color(hex: "#EF4444")
         static let rhrPositive = Color(hex: "#14B8A6")
         static let rhrNegative = Color(hex: "#F97316")
 
-        // Sleep
+        // Legacy Sleep (backward compatibility)
         static let sleepOptimal = Color(hex: "#6366F1")
         static let sleepSufficient = Color(hex: "#8B5CF6")
         static let sleepPoor = Color(hex: "#A78BFA")
+
+        // MARK: - Session 7: Semantic Color Functions
+
+        /// Recovery state color (semantic)
+        static func recovery(score: Int) -> Color {
+            switch score {
+            case 70...100: return optimal
+            case 34..<70: return caution
+            default: return critical
+            }
+        }
+
+        /// Strain state color based on current vs target
+        static func strain(current: Double, target: Double) -> Color {
+            let ratio = current / max(target, 0.1)
+            if ratio < 0.5 { return neutral }       // Under target
+            if ratio < 1.0 { return optimal }       // Approaching target
+            if ratio < 1.2 { return caution }       // At/slightly over
+            return critical                          // Overreach
+        }
+
+        /// HRV deviation color
+        static func hrv(deviationPercent: Double) -> Color {
+            if deviationPercent >= 10 { return optimal }    // 10%+ above baseline
+            if deviationPercent >= -10 { return neutral }   // Within normal range
+            if deviationPercent >= -20 { return caution }   // Below baseline
+            return critical                                   // Significantly below
+        }
+
+        /// Sleep performance color
+        static func sleepPerformance(score: Int) -> Color {
+            switch score {
+            case 80...100: return optimal
+            case 60..<80: return neutral
+            default: return critical
+            }
+        }
 
         // Utility Functions
         static func recoveryColor(for score: Double) -> Color {
@@ -87,14 +146,14 @@ struct Theme {
         static let neonGold = recoveryModerate
         static let neonBlue = strainModerate
 
-        /// Recovery color for integer score (legacy compatibility)
-        static func recovery(score: Int) -> Color {
-            recoveryColor(for: Double(score))
-        }
-
         /// Strain color for integer score (legacy compatibility)
         static func strain(score: Int) -> Color {
             strainColor(for: Double(score))
+        }
+
+        /// Legacy recovery color using gradient-style ranges
+        static func recoveryLegacy(score: Int) -> Color {
+            recoveryColor(for: Double(score))
         }
 
         /// Universal status color - binary: critical or not
@@ -172,18 +231,27 @@ struct Theme {
         }
     }
 
-    // MARK: - Typography
+    // MARK: - Typography (SF Pro)
     struct Fonts {
+        /// Hero metrics (76%, 4.3, 108ms)
+        static let heroMetric = Font.system(size: 72, weight: .bold, design: .default)
+
+        /// Body text
+        static let body = Font.system(size: 17, weight: .regular, design: .default)
+
+        /// Display numerals (SF Pro Display)
+        static func display(_ size: CGFloat) -> Font {
+            .system(size: size, weight: .bold, design: .default)
+        }
+
+        /// Labels with tracking (RECOVERY, STRAIN, OVERVIEW)
+        static func label(_ size: CGFloat) -> Font {
+            .system(size: size, weight: .semibold, design: .default)
+        }
+
+        // Legacy compatibility
         static func mono(_ size: CGFloat) -> Font {
             .system(size: size, weight: .bold, design: .monospaced)
-        }
-
-        static func display(_ size: CGFloat) -> Font {
-            .system(size: size, weight: .heavy, design: .monospaced)
-        }
-
-        static func label(_ size: CGFloat) -> Font {
-            .system(size: size, weight: .medium, design: .default)
         }
 
         static func header(_ size: CGFloat) -> Font {
@@ -194,7 +262,6 @@ struct Theme {
             .system(size: size, weight: .regular, design: .default)
         }
 
-        // Legacy compatibility
         static func mono(size: CGFloat) -> Font {
             mono(size)
         }
@@ -218,10 +285,20 @@ struct Theme {
         static func tensor(size: CGFloat) -> Font {
             mono(size)
         }
+
+        /// Dynamic Type support
+        static func dynamicBody(_ size: CGFloat) -> Font {
+            .system(size: size, weight: .regular, design: .default)
+        }
     }
 
-    // MARK: - Spacing System (8pt Grid)
+    // MARK: - Spacing System (Session 7)
     struct Spacing {
+        static let moduleP: CGFloat = 24    // Module padding
+        static let cardGap: CGFloat = 16    // Between cards
+        static let inlineGap: CGFloat = 8   // Inline elements
+
+        // Legacy (backward compatibility)
         static let xs: CGFloat = 4
         static let sm: CGFloat = 8
         static let md: CGFloat = 16

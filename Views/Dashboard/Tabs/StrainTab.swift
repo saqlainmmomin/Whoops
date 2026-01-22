@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Session 7: Whoop-aligned Strain Tab
+/// Focus on 0-21 scale with HR zone breakdown
 struct StrainTab: View {
     @ObservedObject var viewModel: DashboardViewModel
 
@@ -11,82 +13,101 @@ struct StrainTab: View {
         viewModel.todayMetrics?.activity?.activeEnergy ?? 0
     }
 
-    private var steps: Int {
-        viewModel.todayMetrics?.activity?.steps ?? 0
+    private var zoneMinutes: [HRZone: Int] {
+        guard let zones = viewModel.todayMetrics?.zoneDistribution else { return [:] }
+        return [
+            .zone1: zones.zone1Minutes,
+            .zone2: zones.zone2Minutes,
+            .zone3: zones.zone3Minutes,
+            .zone4: zones.zone4Minutes,
+            .zone5: zones.zone5Minutes
+        ]
+    }
+
+    private var maxZoneMinutes: Int {
+        max(zoneMinutes.values.max() ?? 1, 1)
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                // Main strain arc
-                StrainArc(
-                    score: strainScore,
-                    targetStrain: viewModel.optimalStrainTarget,
-                    weeklyAverage: viewModel.weeklyStrainAvg
+            VStack(spacing: Theme.Spacing.moduleP) {
+
+                // Strain gauge with target ring
+                StrainGauge(
+                    current: strainScore,
+                    target: viewModel.optimalStrainTarget ?? 14.0
                 )
-                .padding(.top, Theme.Spacing.lg)
+                .frame(width: 180, height: 180)
 
-                // Strain components
-                if let strain = viewModel.todayMetrics?.strainScore {
-                    StrainComponentsCard(strain: strain)
-                        .padding(.horizontal)
-                }
-
-                // Activity stats
-                HStack(spacing: Theme.Spacing.md) {
-                    ActivityStatCard(
-                        icon: "flame.fill",
-                        value: String(format: "%.0f", activeCalories),
-                        unit: "cal",
-                        label: "ACTIVE"
+                // Raw contribution breakdown (NO POINTS SYSTEM)
+                VStack(spacing: 12) {
+                    StrainContributionRow(
+                        label: "HR Zone Time",
+                        value: "\(hrZoneTimeMinutes)min"
                     )
-
-                    ActivityStatCard(
-                        icon: "figure.walk",
-                        value: formatSteps(steps),
-                        unit: "",
-                        label: "STEPS"
+                    StrainContributionRow(
+                        label: "Workout Duration",
+                        value: "\(workoutDurationMinutes)min"
+                    )
+                    StrainContributionRow(
+                        label: "Active Energy",
+                        value: "\(Int(activeCalories)) cal"
                     )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // Heart rate zones
-                if let zones = viewModel.todayMetrics?.zoneDistribution {
-                    HeartRateZonesCard(zones: zones)
-                        .padding(.horizontal)
-                }
+                // HR Zones: FULL WIDTH bars with minutes
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("HR ZONES")
+                        .font(Theme.Fonts.label(11))
+                        .foregroundColor(Theme.Colors.textSecondary)
 
-                // Weekly trend
-                if !viewModel.strainSparklineData.isEmpty {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("7-DAY STRAIN TREND")
-                            .font(Theme.Fonts.label(11))
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                            .tracking(1)
-
-                        SparklineChart(
-                            data: viewModel.strainSparklineData,
-                            color: Theme.Colors.strainColor(for: strainScore)
+                    ForEach(HRZone.allCases, id: \.self) { zone in
+                        HRZoneBar(
+                            zone: zone,
+                            minutes: zoneMinutes[zone] ?? 0,
+                            maxMinutes: maxZoneMinutes
                         )
-                        .frame(height: 60)
                     }
-                    .padding(.horizontal)
                 }
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                Spacer(minLength: Theme.Spacing.xl)
+                // Workout log
+                if let workouts = viewModel.todayWorkouts, !workouts.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("WORKOUTS")
+                            .font(Theme.Fonts.label(11))
+                            .foregroundColor(Theme.Colors.textSecondary)
+
+                        ForEach(workouts) { workout in
+                            WorkoutLogEntry(
+                                type: workout.type,
+                                timestamp: workout.startTime,
+                                duration: workout.duration,
+                                avgHR: workout.averageHeartRate
+                            )
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.moduleP)
+                }
             }
-            .padding(.vertical, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.moduleP)
         }
-        .background(Theme.Colors.void)
+        .background(Theme.Colors.primary)
     }
 
-    private func formatSteps(_ steps: Int) -> String {
-        if steps >= 1000 {
-            return String(format: "%.1fk", Double(steps) / 1000)
-        }
-        return "\(steps)"
+    // MARK: - Computed Properties
+
+    private var hrZoneTimeMinutes: Int {
+        zoneMinutes.values.reduce(0, +)
+    }
+
+    private var workoutDurationMinutes: Int {
+        viewModel.todayMetrics?.workouts?.totalDurationMinutes ?? 0
     }
 }
+
+// MARK: - Legacy Components (kept for backward compatibility)
 
 struct StrainComponentsCard: View {
     let strain: StrainScore
@@ -153,11 +174,11 @@ struct ActivityStatCard: View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundStyle(Theme.Colors.strainModerate)
+                .foregroundStyle(Theme.Colors.neutral)
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(Theme.Fonts.mono(24))
+                    .font(Theme.Fonts.display(24))
                     .foregroundStyle(Theme.Colors.textPrimary)
 
                 if !unit.isEmpty {
@@ -174,12 +195,8 @@ struct ActivityStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
+        .background(Theme.Colors.secondary)
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
-        )
     }
 }
 
@@ -195,19 +212,15 @@ struct HeartRateZonesCard: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 ZoneRow(zone: 5, label: "MAX", minutes: zones.zone5Minutes, color: Color(hex: "#DC2626"))
-                ZoneRow(zone: 4, label: "HARD", minutes: zones.zone4Minutes, color: Color(hex: "#F97316"))
-                ZoneRow(zone: 3, label: "MODERATE", minutes: zones.zone3Minutes, color: Color(hex: "#FBBF24"))
-                ZoneRow(zone: 2, label: "LIGHT", minutes: zones.zone2Minutes, color: Color(hex: "#34D399"))
-                ZoneRow(zone: 1, label: "REST", minutes: zones.zone1Minutes, color: Color(hex: "#6B7280"))
+                ZoneRow(zone: 4, label: "HARD", minutes: zones.zone4Minutes, color: Color(hex: "#EF4444"))
+                ZoneRow(zone: 3, label: "MODERATE", minutes: zones.zone3Minutes, color: Color(hex: "#F59E0B"))
+                ZoneRow(zone: 2, label: "LIGHT", minutes: zones.zone2Minutes, color: Color(hex: "#4A9EFF"))
+                ZoneRow(zone: 1, label: "REST", minutes: zones.zone1Minutes, color: Color(hex: "#10B981"))
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
+        .background(Theme.Colors.secondary)
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
-        )
     }
 }
 
@@ -217,12 +230,10 @@ struct ZoneRow: View {
     let minutes: Int
     let color: Color
 
-    private var totalMinutes: Int { max(minutes, 1) }
-
     var body: some View {
         HStack {
             Text("Z\(zone)")
-                .font(Theme.Fonts.mono(10))
+                .font(Theme.Fonts.label(10))
                 .foregroundStyle(color)
                 .frame(width: 24)
 
@@ -232,16 +243,20 @@ struct ZoneRow: View {
                 .frame(width: 60, alignment: .leading)
 
             GeometryReader { geo in
-                Rectangle()
-                    .fill(color)
-                    .frame(width: min(geo.size.width, geo.size.width * CGFloat(minutes) / 60))
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Theme.Colors.tertiary)
+
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: min(geo.size.width, geo.size.width * CGFloat(minutes) / 60))
+                }
             }
             .frame(height: 8)
-            .background(Theme.Colors.borderSubtle)
             .clipShape(Capsule())
 
             Text("\(minutes)m")
-                .font(Theme.Fonts.mono(10))
+                .font(Theme.Fonts.display(10))
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .frame(width: 36, alignment: .trailing)
         }

@@ -180,7 +180,7 @@ Theme.Fonts.label(size:)    // SF Pro Medium - labels (UPPERCASE + tracking)
   - Recovery ≤33 = critical
   - Strain ≥67 = critical
 
-### Session 6 (Jan 22, 2026) - Premium Gradient Dashboard Redesign
+### Session 6 (Jan 22, 2025) - Premium Gradient Dashboard Redesign
 **Major Pivot:** Complete departure from Session 5's brutalist aesthetic to premium gradient-based visualization
 
 **Design Philosophy:**
@@ -237,6 +237,101 @@ Theme.Fonts.label(size:)    // SF Pro Medium - labels (UPPERCASE + tracking)
 - Baseline band charts showing personal baseline ranges
 - Premium visual polish with animations and gradients
 
+### Session 7 (Jan 22, 2025) - Whoop-Aligned Architecture Overhaul
+**Major Refactor:** Complete redesign aligned with Whoop's proven UX patterns and physiological scoring formulas
+
+**Design Philosophy:**
+- Whoop-style 0-21 strain scale (replaces 0-100)
+- Recovery formula: 50% HRV deviation + 30% RHR deviation + 20% sleep performance
+- Week-view first approach for sleep visualization
+- Semantic color system: optimal (green), neutral (blue), caution (orange), critical (red)
+- Clean OLED-black backgrounds, no gradients on insight cards
+- Calendar week aggregation (not rolling 7-day)
+
+**Phase 1: Core Architecture Refactor**
+
+| File | Changes |
+|------|---------|
+| `Models/DailyMetrics.swift` | Added PerformanceOutput, ReadinessState, AutonomicBalance, SleepAnalysis, ActivityDataSummary, SleepPerformance, ConsistencyMetrics, WeekSummary, StrainScore21 |
+| `Services/Calculations/SleepPerformanceEngine.swift` | **NEW** - Calculates sleep quality (40% hours vs need + 30% efficiency + 30% consistency) |
+| `Services/Calculations/ConsistencyCalculator.swift` | **NEW** - Measures sleep schedule regularity using bedtime/wake variance |
+| `Services/Calculations/RecoveryScoreEngine.swift` | Added Whoop-aligned formula with ReadinessState output |
+| `Services/Calculations/StrainScoreEngine.swift` | Added 0-21 scale calculation with HR zone weighting |
+| `Services/Calculations/WeekAggregator.swift` | **NEW** - Calendar week aggregation, week comparison |
+| `Utilities/Constants.swift` | Added RecoveryWeights (0.50 HRV, 0.30 RHR, 0.20 sleep) |
+
+**Phase 2: Visual System Overhaul**
+
+| File | Changes |
+|------|---------|
+| `Utilities/Theme.swift` | Semantic colors (optimal/neutral/caution/critical), new recovery/strain/hrv/sleepPerformance color functions, moduleP/cardGap spacing |
+| `Views/Components/CircularProgressGauge.swift` | **NEW** - Single-metric gauge, StrainGauge (0-21 with target), RecoveryComponentBar, SleepMetricBox, WeekSelector |
+| `Views/Components/WeekBarChart.swift` | **NEW** - Sleep timeline (bedtime-to-wake windows), DailySleepBar, SleepStagesCard |
+| `Views/Components/SegmentedProgressBar.swift` | **NEW** - Sleep stages, HR zones, HRZoneBar, StrainContributionRow, WorkoutRow |
+| `Views/Components/MetricTile.swift` | **NEW** - 2-column grid tiles, TappableMetricTile, TrendBadge |
+| `Views/Components/InsightCard.swift` | **REWRITTEN** - Clean design (no gradients), PrimaryInsight model with factory methods |
+
+**Phase 3: Dashboard Tab Redesign**
+
+| File | Changes |
+|------|---------|
+| `Views/Dashboard/Tabs/OverviewTab.swift` | **REWRITTEN** - Single recovery gauge, 4 metric tiles (HRV/RHR/Strain/Sleep), insight card, workout feed |
+| `Views/Dashboard/Tabs/SleepTab.swift` | **REWRITTEN** - Week-view first, WeekSelector, 3-metric summary, consistency row, day-tap for stages |
+| `Views/Dashboard/Tabs/RecoveryTab.swift` | **REWRITTEN** - Recovery gauge, 4 horizontal progress bars (HRV/RHR/Sleep/Strain deviation), 7-day sparkline |
+| `Views/Dashboard/Tabs/StrainTab.swift` | **REWRITTEN** - StrainGauge (0-21 with target), raw contributions, full-width HR zone bars, workout log |
+
+**Phase 4: Error States & Data Validation**
+
+| File | Purpose |
+|------|---------|
+| `Views/Components/ZeroStateView.swift` | **NEW** - No-data states with metric-specific messages, CompactZeroState, LoadingStateView, PermissionRequiredView |
+| `Services/DataQuality/DataValidator.swift` | **NEW** - RHR/HRV validation (physiological ranges), outlier filtering (IQR), DataQualitySummary |
+| `Views/Components/ErrorBanner.swift` | **NEW** - Error/warning/info/success banners with dismiss, BannerModifier |
+
+**Phase 5: Notifications Update**
+
+| File | Changes |
+|------|---------|
+| `Services/Notifications/NotificationManager.swift` | Added generateInsightNotification(), scheduleBedtimeReminder(targetBedtime:), scheduleMorningRecoverySummary(), scheduleSleepPerformanceNotification() |
+
+**Phase 6: Information Architecture**
+
+| File | Purpose |
+|------|---------|
+| `Views/Components/MetricInfoSheet.swift` | **NEW** - Metric explanations with calculation details, normal ranges, actionable guidance, tips |
+| `Views/Dashboard/DatePickerHeader.swift` | **NEW** - Date navigation with calendar picker, CompactDateHeader, WeekNavigationHeader |
+| `Services/Persistence/ExportService.swift` | Added exportWeeklyCSV(), exportMonthlyCSV(), exportDateRangeCSV() |
+
+**Phase 7: Accessibility & Performance**
+
+| File | Purpose |
+|------|---------|
+| `Views/Modifiers/ReduceMotionModifier.swift` | **NEW** - Reduce motion support, accessibility labels for gauges, Dynamic Type helpers, high contrast mode |
+| `Services/HealthKit/HealthKitCache.swift` | **NEW** - NSCache-based caching for HealthKit queries (15-min expiration), cache statistics |
+
+**Files Deleted (Legacy Components):**
+- `Views/Components/RecoveryRing.swift` - Replaced by CircularProgressGauge
+- `Views/Components/StrainArc.swift` - Replaced by StrainGauge
+- `Views/Components/BiometricSatellite.swift` - Replaced by MetricTile
+
+**Key Formulas:**
+```
+Recovery Score = 0.50 × HRV_deviation + 0.30 × (1 - RHR_deviation) + 0.20 × sleep_performance
+
+Sleep Performance = 0.40 × (hours/need) + 0.30 × efficiency + 0.30 × (1 - consistency_variance)
+
+Whoop Strain (0-21) = Σ(zone_minutes × zone_weight) / 10 + active_energy / 100
+  Zone weights: Z1=0.1, Z2=0.3, Z3=0.6, Z4=1.0, Z5=1.5
+```
+
+**Semantic Color System:**
+```swift
+Theme.Colors.optimal   // #00FF41 - Green: recovery 70-100, HRV +10%+
+Theme.Colors.neutral   // #4A9EFF - Blue: informational, approaching target
+Theme.Colors.caution   // #FF9500 - Orange: recovery 34-69, HRV -10 to -20%
+Theme.Colors.critical  // #FF3B30 - Red: recovery <34, strain overreach
+```
+
 ---
 
 ## Current Project Structure
@@ -253,7 +348,7 @@ Whoops/
 │   ├── SleepData.swift          # Sleep stages, timing, efficiency
 │   ├── WorkoutData.swift        # Workout sessions, HR zones
 │   ├── ActivityData.swift       # Steps, energy, distance
-│   ├── DailyMetrics.swift       # Aggregated daily snapshot
+│   ├── DailyMetrics.swift       # Aggregated daily snapshot + Session 7 structs
 │   ├── Baseline.swift           # Rolling baselines
 │   ├── UserProfile.swift        # User name + HealthKit characteristics
 │   ├── Goal.swift               # Habit goals with streak tracking
@@ -263,26 +358,31 @@ Whoops/
 ├── Services/
 │   ├── HealthKit/
 │   │   ├── HealthKitManager.swift
+│   │   ├── HealthKitCache.swift     # [Session 7] NSCache for HK queries
 │   │   ├── HKQueryBuilders.swift
 │   │   └── HKDataMappers.swift
 │   ├── Calculations/
 │   │   ├── Tier1Calculator.swift
 │   │   ├── Tier2Calculator.swift
 │   │   ├── BaselineEngine.swift
-│   │   ├── RecoveryScoreEngine.swift
-│   │   ├── StrainScoreEngine.swift
+│   │   ├── RecoveryScoreEngine.swift   # [Session 7] Whoop-aligned formula
+│   │   ├── StrainScoreEngine.swift     # [Session 7] 0-21 scale
+│   │   ├── SleepPerformanceEngine.swift # [Session 7] Sleep quality scoring
+│   │   ├── ConsistencyCalculator.swift  # [Session 7] Schedule regularity
+│   │   ├── WeekAggregator.swift        # [Session 7] Week aggregation
 │   │   └── HealthMonitorEngine.swift
 │   ├── Persistence/
 │   │   ├── LocalStore.swift
-│   │   └── ExportService.swift
+│   │   └── ExportService.swift       # [Session 7] Weekly/monthly CSV export
 │   ├── DataQuality/
-│   │   └── GapDetector.swift
+│   │   ├── GapDetector.swift
+│   │   └── DataValidator.swift       # [Session 7] Physiological validation
 │   ├── Habits/
 │   │   └── PatternDetector.swift
 │   ├── Insights/
 │   │   └── InsightGenerator.swift
 │   └── Notifications/
-│       └── NotificationManager.swift
+│       └── NotificationManager.swift  # [Session 7] Insight notifications
 │
 ├── ViewModels/
 │   ├── DashboardViewModel.swift
@@ -294,13 +394,14 @@ Whoops/
 │   ├── Dashboard/
 │   │   ├── DashboardView.swift        # Main dashboard wrapper
 │   │   ├── DashboardTabView.swift     # Tab controller (Overview/Sleep/Recovery/Strain)
+│   │   ├── DatePickerHeader.swift     # [Session 7] Date navigation
 │   │   ├── RecoveryCard.swift         # Legacy recovery card
 │   │   ├── StrainCard.swift           # Legacy strain card
 │   │   └── Tabs/
-│   │       ├── OverviewTab.swift      # Hero metrics: RecoveryRing, StrainArc, biometrics
-│   │       ├── SleepTab.swift         # Sleep duration ring, stages, efficiency
-│   │       ├── RecoveryTab.swift      # Recovery breakdown, biometric cards
-│   │       └── StrainTab.swift        # Strain details, activity, HR zones
+│   │       ├── OverviewTab.swift      # [Session 7] Single gauge, 4 tiles, insights
+│   │       ├── SleepTab.swift         # [Session 7] Week-view first, bar chart
+│   │       ├── RecoveryTab.swift      # [Session 7] Progress bars, sparkline
+│   │       └── StrainTab.swift        # [Session 7] 0-21 gauge, HR zones
 │   ├── Profile/
 │   │   └── ProfileTensorView.swift
 │   ├── Detail/
@@ -315,12 +416,19 @@ Whoops/
 │   ├── Settings/
 │   │   └── NotificationSettingsView.swift
 │   ├── Export/
+│   ├── Modifiers/
+│   │   └── ReduceMotionModifier.swift  # [Session 7] Accessibility modifiers
 │   └── Components/
 │       ├── SovereignGauge.swift       # Legacy gauge component
 │       ├── DeepDataCard.swift         # Legacy data card
-│       ├── RecoveryRing.swift         # Animated circular recovery gauge
-│       ├── StrainArc.swift            # 270° arc strain display
-│       ├── BiometricSatellite.swift   # Compact HRV/RHR display
+│       ├── CircularProgressGauge.swift # [Session 7] Single-metric gauge
+│       ├── WeekBarChart.swift          # [Session 7] Sleep timeline
+│       ├── SegmentedProgressBar.swift  # [Session 7] Stages/zones bars
+│       ├── MetricTile.swift            # [Session 7] 2-column tiles
+│       ├── InsightCard.swift           # [Session 7] Clean insights
+│       ├── ZeroStateView.swift         # [Session 7] No-data states
+│       ├── ErrorBanner.swift           # [Session 7] Error/warning banners
+│       ├── MetricInfoSheet.swift       # [Session 7] Metric explanations
 │       ├── InsightBanner.swift        # Contextual insights
 │       ├── HealthMonitorBadge.swift   # Metrics-in-range indicator
 │       └── Charts/
@@ -329,8 +437,8 @@ Whoops/
 │           └── BaselineBandChart.swift  # Time series with baseline bands
 │
 ├── Utilities/
-│   ├── Theme.swift                  # Brutalist design system
-│   ├── Constants.swift
+│   ├── Theme.swift                  # [Session 7] Semantic color system
+│   ├── Constants.swift              # [Session 7] RecoveryWeights
 │   ├── DateHelpers.swift
 │   └── StatisticalHelpers.swift
 │
@@ -393,6 +501,22 @@ let filtered = allRecords.filter { $0.id.hasPrefix(prefix) }
 - Insights system with contextual recommendations
 - Health monitoring with metrics-in-range tracking
 
+### Whoop-Aligned Architecture (Session 7)
+- Semantic color system tied to physiological states:
+  - `optimal` (#00FF41): recovery 70-100%, HRV +10%+, sleep 80%+
+  - `neutral` (#4A9EFF): informational, approaching target
+  - `caution` (#FF9500): recovery 34-69%, HRV -10 to -20%
+  - `critical` (#FF3B30): recovery <34%, strain overreach
+- Strain on 0-21 scale with HR zone weighting (Z1=0.1, Z2=0.3, Z3=0.6, Z4=1.0, Z5=1.5)
+- Recovery formula: 50% HRV deviation + 30% RHR deviation + 20% sleep performance
+- Sleep performance: 40% hours vs need + 30% efficiency + 30% consistency
+- Calendar week aggregation (Sunday-Saturday) instead of rolling 7-day
+- Week-view first approach for sleep visualization
+- Clean OLED-black backgrounds (#000000) with no gradient insight cards
+- Data validation with physiological range checking (RHR: 30-120, HRV: 10-200)
+- Accessibility: Reduce Motion support, VoiceOver labels, Dynamic Type
+- HealthKit query caching with 15-minute expiration
+
 ---
 
 ## Backup Location
@@ -404,24 +528,34 @@ Original uncorrupted source files: `/Users/saqlainmomin/Whoops/Whoops/`
 ## Next Steps
 
 1. ~~Build and test on device with real HealthKit data~~
-2. ~~Polish UI components~~ → Sovereign Dark theme (Session 3) → Premium Gradient (Session 6)
+2. ~~Polish UI components~~ → Sovereign Dark theme (Session 3) → Premium Gradient (Session 6) → Whoop-aligned (Session 7)
 3. ~~Add sparkline graphs inside `DeepDataCard` components~~ → Session 4
 4. ~~Connect `ProfileTensorView` to actual user data persistence~~ → Session 4
 5. ~~Implement onboarding flow~~ → Session 4
 6. ~~Add habit tracking system~~ → Session 4
 7. ~~Add timeline comparison mode~~ → Session 4
-8. ~~Implement smart notifications~~ → Session 4
+8. ~~Implement smart notifications~~ → Session 4 → Enhanced (Session 7)
 9. ~~Fix strain circle bug~~ → Session 4.1
-10. ~~Unify color system with score-based colors~~ → Session 4.1 → Session 6 (gradient system)
+10. ~~Unify color system with score-based colors~~ → Session 4.1 → Semantic colors (Session 7)
 11. ~~Implement 8pt spacing grid~~ → Session 4.1
-12. ~~Reduce UI noise (remove decorative elements)~~ → Session 4.1
-13. ~~Complete UI redesign~~ → Brutalist (Session 5) → Premium Gradient (Session 6)
-14. ~~Implement tabbed dashboard architecture~~ → Session 6
-15. ~~Add insight generation system~~ → Session 6
+12. ~~Reduce UI noise (remove decorative elements)~~ → Session 4.1 → Session 7
+13. ~~Complete UI redesign~~ → Brutalist (Session 5) → Premium Gradient (Session 6) → Whoop-aligned (Session 7)
+14. ~~Implement tabbed dashboard architecture~~ → Session 6 → Redesigned (Session 7)
+15. ~~Add insight generation system~~ → Session 6 → PrimaryInsight (Session 7)
 16. ~~Add health monitoring with baseline tracking~~ → Session 6
-17. Apply premium gradient styling to remaining views (Onboarding, Habits, Timeline, Settings, Profile)
-18. Add unit tests for calculators
-19. Test Recovery and Strain score calculations with real data
-20. Implement haptic feedback on interactions
-21. Add widget for home screen (Recovery/Strain at a glance)
-22. Add Apple Watch companion app
+17. ~~Implement Whoop-style 0-21 strain scale~~ → Session 7
+18. ~~Add sleep performance scoring~~ → Session 7
+19. ~~Add week-view first sleep visualization~~ → Session 7
+20. ~~Add data validation and error states~~ → Session 7
+21. ~~Add metric info sheets with explanations~~ → Session 7
+22. ~~Add accessibility modifiers (Reduce Motion, VoiceOver)~~ → Session 7
+23. ~~Add HealthKit query caching~~ → Session 7
+24. ~~Add CSV export for weekly/monthly data~~ → Session 7
+25. Apply Whoop-aligned styling to remaining views (Onboarding, Habits, Timeline, Settings, Profile)
+26. Add unit tests for new calculation engines (SleepPerformanceEngine, ConsistencyCalculator)
+27. Test Recovery and Strain score calculations with real data
+28. Implement haptic feedback on interactions
+29. Add widget for home screen (Recovery/Strain at a glance)
+30. Add Apple Watch companion app
+31. Integrate DataValidator into data pipeline
+32. Wire up HealthKitCache to HealthKitManager queries

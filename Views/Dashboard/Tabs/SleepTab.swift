@@ -1,217 +1,222 @@
 import SwiftUI
 
+/// Session 7: Whoop-aligned Sleep Tab
+/// Week-view first approach with bedtime-to-wake visualization
 struct SleepTab: View {
     @ObservedObject var viewModel: DashboardViewModel
-
-    private var sleepHours: Double {
-        viewModel.todayMetrics?.sleep?.totalSleepHours ?? 0
-    }
-
-    private var sleepEfficiency: Double {
-        viewModel.todayMetrics?.sleep?.averageEfficiency ?? 0
-    }
-
-    private var sleepDebtHours: Double {
-        viewModel.todayMetrics?.sleepDebt?.debtHours ?? 0
-    }
-
-    private var sleepColor: Color {
-        if sleepHours >= 7.5 {
-            return Theme.Colors.sleepOptimal
-        } else if sleepHours >= 6.5 {
-            return Theme.Colors.sleepSufficient
-        } else {
-            return Theme.Colors.sleepPoor
-        }
-    }
+    @State private var selectedDay: Date?
+    @State private var selectedWeek: Date = WeekAggregator.currentWeekStart()
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                // Sleep duration ring
-                ZStack {
-                    Circle()
-                        .stroke(Theme.Colors.borderSubtle, lineWidth: 12)
+            VStack(spacing: Theme.Spacing.moduleP) {
 
-                    Circle()
-                        .trim(from: 0, to: min(sleepHours / 10.0, 1.0))
-                        .stroke(
-                            LinearGradient(
-                                colors: [sleepColor, sleepColor.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
+                // Week selector
+                WeekSelector(
+                    currentWeek: selectedWeek,
+                    onPreviousWeek: { goToPreviousWeek() },
+                    onNextWeek: { goToNextWeek() }
+                )
 
-                    VStack(spacing: 4) {
-                        Text(String(format: "%.1f", sleepHours))
-                            .font(Theme.Fonts.display(56))
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                        Text("HOURS")
-                            .font(Theme.Fonts.label(10))
-                            .foregroundStyle(sleepColor)
-                            .tracking(2)
-                    }
-                }
-                .frame(width: 180, height: 180)
-                .glow(color: sleepColor, radius: 12, opacity: 0.3)
-                .padding(.top, Theme.Spacing.lg)
-
-                // Sleep stats grid
-                HStack(spacing: Theme.Spacing.lg) {
-                    SleepStatCard(
-                        title: "EFFICIENCY",
-                        value: String(format: "%.0f%%", sleepEfficiency * 100),
-                        subtitle: "Time asleep"
+                // 3-metric summary
+                HStack(spacing: Theme.Spacing.cardGap) {
+                    SleepMetricBox(
+                        value: "\(weekSleepPerformance)%",
+                        label: "Performance"
                     )
-
-                    SleepStatCard(
-                        title: "DEBT",
-                        value: String(format: "%.1fh", sleepDebtHours),
-                        subtitle: "This week"
+                    SleepMetricBox(
+                        value: hoursVsNeedFormatted,
+                        label: "Hrs vs Need"
+                    )
+                    SleepMetricBox(
+                        value: timeInBedFormatted,
+                        label: "Time in Bed"
                     )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // Sleep stages breakdown
-                if let sleep = viewModel.todayMetrics?.sleep {
-                    SleepStagesCard(sleep: sleep)
-                        .padding(.horizontal)
+                // Consistency row
+                HStack {
+                    Text("CONSISTENCY")
+                        .font(Theme.Fonts.label(11))
+                        .foregroundColor(Theme.Colors.textSecondary)
+                    Spacer()
+                    Text("\(Int(sleepConsistency * 100))%")
+                        .font(Theme.Fonts.display(17))
+                        .foregroundColor(Theme.Colors.textPrimary)
                 }
+                .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // Weekly sparkline
-                if !viewModel.sleepSparklineData.isEmpty {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("7-DAY TREND")
-                            .font(Theme.Fonts.label(11))
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                            .tracking(1)
-
-                        SparklineChart(data: viewModel.sleepSparklineData, color: sleepColor)
-                            .frame(height: 60)
+                // Week bar chart (bedtime-to-wake windows)
+                WeekBarChart(
+                    sleepData: weekSleepBars,
+                    selectedDay: selectedDay,
+                    onDayTap: { day in
+                        withAnimation {
+                            selectedDay = selectedDay == day ? nil : day
+                        }
                     }
-                    .padding(.horizontal)
+                )
+                .frame(height: 200)
+                .padding(.horizontal, Theme.Spacing.moduleP)
+
+                // If day selected, show stages breakdown
+                if let day = selectedDay,
+                   let sleepDetail = sleepDetail(for: day) {
+                    SleepStagesCard(sleep: sleepDetail)
+                        .padding(.horizontal, Theme.Spacing.moduleP)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
-                Spacer(minLength: Theme.Spacing.xl)
-            }
-            .padding(.vertical, Theme.Spacing.lg)
-        }
-        .background(Theme.Gradients.sleepAmbient)
-        .background(Theme.Colors.void)
-    }
-}
-
-struct SleepStatCard: View {
-    let title: String
-    let value: String
-    let subtitle: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
-
-            Text(value)
-                .font(Theme.Fonts.mono(28))
-                .foregroundStyle(Theme.Colors.textPrimary)
-
-            Text(subtitle)
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(Theme.Colors.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
-        )
-    }
-}
-
-struct SleepStagesCard: View {
-    let sleep: DailySleepSummary
-
-    private var breakdown: SleepStageBreakdown { sleep.combinedStageBreakdown }
-    private var remMinutes: Int { breakdown.remMinutes }
-    private var deepMinutes: Int { breakdown.deepMinutes }
-    private var coreMinutes: Int { breakdown.coreMinutes }
-    private var awakeMinutes: Int { breakdown.awakeMinutes }
-    private var totalMinutes: Int { max(breakdown.totalMinutes, 1) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("SLEEP STAGES")
-                .font(Theme.Fonts.label(11))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
-
-            // Stacked bar
-            GeometryReader { geo in
-                HStack(spacing: 2) {
-                    Rectangle()
-                        .fill(Color(hex: "#4F46E5"))
-                        .frame(width: geo.size.width * CGFloat(deepMinutes) / CGFloat(totalMinutes))
-
-                    Rectangle()
-                        .fill(Color(hex: "#7C3AED"))
-                        .frame(width: geo.size.width * CGFloat(remMinutes) / CGFloat(totalMinutes))
-
-                    Rectangle()
-                        .fill(Color(hex: "#A78BFA"))
-                        .frame(width: geo.size.width * CGFloat(coreMinutes) / CGFloat(totalMinutes))
-
-                    Rectangle()
-                        .fill(Theme.Colors.borderMedium)
-                        .frame(width: geo.size.width * CGFloat(awakeMinutes) / CGFloat(totalMinutes))
+                // Insight card
+                if let insight = sleepInsight {
+                    InsightCard(
+                        icon: "moon.zzz.fill",
+                        heading: "Sleep Schedule",
+                        body: insight,
+                        accentColor: Theme.Colors.neutral
+                    )
+                    .padding(.horizontal, Theme.Spacing.moduleP)
                 }
-                .clipShape(Capsule())
             }
-            .frame(height: 12)
+            .padding(.vertical, Theme.Spacing.moduleP)
+        }
+        .background(Theme.Colors.primary)
+    }
 
-            // Legend
-            HStack(spacing: Theme.Spacing.md) {
-                StageLegend(color: Color(hex: "#4F46E5"), label: "Deep", value: "\(deepMinutes)m")
-                StageLegend(color: Color(hex: "#7C3AED"), label: "REM", value: "\(remMinutes)m")
-                StageLegend(color: Color(hex: "#A78BFA"), label: "Core", value: "\(coreMinutes)m")
-                StageLegend(color: Theme.Colors.borderMedium, label: "Awake", value: "\(awakeMinutes)m")
+    // MARK: - Week Navigation
+
+    private func goToPreviousWeek() {
+        withAnimation {
+            selectedWeek = WeekAggregator.previousWeekStart(from: selectedWeek)
+            selectedDay = nil
+        }
+    }
+
+    private func goToNextWeek() {
+        let nextWeek = WeekAggregator.nextWeekStart(from: selectedWeek)
+        if !WeekAggregator.isWeekInFuture(nextWeek) {
+            withAnimation {
+                selectedWeek = nextWeek
+                selectedDay = nil
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
+    }
+
+    // MARK: - Computed Properties
+
+    private var weekMetrics: [DailyMetrics] {
+        let calendar = Calendar.current
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: selectedWeek) else { return nil }
+            return viewModel.weeklyMetrics.first { calendar.isDate($0.date, inSameDayAs: date) }
+        }
+    }
+
+    private var weekSleepPerformance: Int {
+        let performances = weekMetrics.compactMap { metric -> Int? in
+            if let analysis = metric.sleepAnalysis {
+                return Int(analysis.performanceScore)
+            } else if let sleep = metric.sleep {
+                return Int(sleep.averageEfficiency)
+            }
+            return nil
+        }
+        guard !performances.isEmpty else { return 0 }
+        return performances.reduce(0, +) / performances.count
+    }
+
+    private var hoursVsNeedFormatted: String {
+        let totalHours = weekMetrics.compactMap { $0.sleep?.totalSleepHours }.reduce(0, +)
+        let avgHours = weekMetrics.isEmpty ? 0 : totalHours / Double(weekMetrics.count)
+        let needed = 7.5 // Default
+        return String(format: "%.1f:%.1f", avgHours, needed)
+    }
+
+    private var timeInBedFormatted: String {
+        let totalDuration = weekMetrics.compactMap { metric -> Double? in
+            if let session = metric.sleep?.primarySession {
+                return session.totalDurationHours
+            }
+            return nil
+        }.reduce(0, +)
+
+        let avgHours = weekMetrics.isEmpty ? 0 : totalDuration / Double(weekMetrics.count)
+        let hours = Int(avgHours)
+        let minutes = Int((avgHours - Double(hours)) * 60)
+        return "\(hours)h \(minutes)m"
+    }
+
+    private var sleepConsistency: Double {
+        let summaries = weekMetrics.compactMap { $0.sleep }
+        let consistency = ConsistencyCalculator.calculate(from: summaries)
+        return consistency.consistencyScore
+    }
+
+    private var weekSleepBars: [DailySleepBar] {
+        let calendar = Calendar.current
+        return (0..<7).compactMap { offset -> DailySleepBar? in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: selectedWeek) else { return nil }
+
+            if let metric = weekMetrics.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
+               let sleep = metric.sleep,
+               let bedtime = sleep.bedtime,
+               let wakeTime = sleep.wakeTime {
+                let efficiency = Int(sleep.averageEfficiency)
+                return DailySleepBar(
+                    date: date,
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
+                    performanceColor: Theme.Colors.sleepPerformance(score: efficiency)
+                )
+            }
+            // Return placeholder for missing data
+            return DailySleepBar(
+                date: date,
+                bedtime: calendar.date(bySettingHour: 23, minute: 0, second: 0, of: date) ?? date,
+                wakeTime: calendar.date(bySettingHour: 7, minute: 0, second: 0, of: date) ?? date,
+                performanceColor: Theme.Colors.tertiary
+            )
+        }
+    }
+
+    private func sleepDetail(for date: Date) -> SleepAnalysis? {
+        let calendar = Calendar.current
+        guard let metric = weekMetrics.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
+              let sleep = metric.sleep,
+              let bedtime = sleep.bedtime,
+              let wakeTime = sleep.wakeTime else {
+            return nil
+        }
+
+        let breakdown = sleep.combinedStageBreakdown
+        return SleepAnalysis(
+            totalDuration: sleep.totalSleepDuration,
+            hoursNeeded: 7.5, // Default
+            hoursVsNeed: sleep.totalSleepHours / 7.5,
+            efficiency: sleep.averageEfficiency / 100,
+            consistency: sleepConsistency,
+            performanceScore: sleep.averageEfficiency,
+            bedtime: bedtime,
+            wakeTime: wakeTime,
+            stages: SleepStages(
+                deepMinutes: breakdown.deepMinutes,
+                remMinutes: breakdown.remMinutes,
+                coreMinutes: breakdown.coreMinutes,
+                awakeMinutes: breakdown.awakeMinutes
+            )
         )
     }
-}
 
-struct StageLegend: View {
-    let color: Color
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(label)
-                    .font(Theme.Fonts.label(9))
-                    .foregroundStyle(Theme.Colors.textTertiary)
-                Text(value)
-                    .font(Theme.Fonts.mono(10))
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
+    private var sleepInsight: String? {
+        if sleepConsistency < 0.6 {
+            return "Your bedtime varies significantly. Try setting a consistent bedtime to improve recovery."
+        } else if weekSleepPerformance < 70 {
+            return "You're averaging below optimal sleep. Consider going to bed 30 minutes earlier."
+        } else if weekSleepPerformance >= 85 {
+            return "Great sleep consistency this week! Keep maintaining your schedule."
         }
+        return nil
     }
 }
 

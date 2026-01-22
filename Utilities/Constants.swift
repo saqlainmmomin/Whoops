@@ -2,19 +2,31 @@ import Foundation
 
 enum Constants {
 
-    // MARK: - Recovery Score Weights
+    // MARK: - Recovery Score Weights (Session 7 Update)
+    // Formula: Recovery = 0.5×HRV_deviation + 0.3×(1-RHR_deviation) + 0.2×sleep_performance
 
     enum RecoveryWeights {
-        static let hrv: Double = 0.40          // 40% weight
-        static let restingHR: Double = 0.20    // 20% weight
-        static let sleepDuration: Double = 0.25 // 25% weight
-        static let sleepInterruptions: Double = 0.15 // 15% weight
+        // Updated weights per Whoop-aligned formula
+        static let hrvDeviation: Double = 0.50   // 50% weight - primary driver
+        static let rhrDeviation: Double = 0.30   // 30% weight - secondary indicator
+        static let sleepPerformance: Double = 0.20 // 20% weight - sleep quality
+
+        // Legacy weights (kept for backward compatibility)
+        static let hrv: Double = 0.40
+        static let restingHR: Double = 0.20
+        static let sleepDuration: Double = 0.25
+        static let sleepInterruptions: Double = 0.15
 
         // Normalization ranges
         static let hrvZScoreRange: ClosedRange<Double> = -2.0...2.0
         static let rhrDeviationRange: ClosedRange<Double> = -10.0...10.0
         static let sleepRatioRange: ClosedRange<Double> = 0.5...1.5
         static let interruptionRange: ClosedRange<Int> = 0...5
+
+        // HRV deviation percentage ranges
+        static let hrvDeviationPercentRange: ClosedRange<Double> = -30.0...30.0
+        // RHR deviation percentage ranges
+        static let rhrDeviationPercentRange: ClosedRange<Double> = -20.0...20.0
     }
 
     // MARK: - Strain Score Weights
