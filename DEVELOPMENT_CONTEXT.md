@@ -180,6 +180,63 @@ Theme.Fonts.label(size:)    // SF Pro Medium - labels (UPPERCASE + tracking)
   - Recovery ≤33 = critical
   - Strain ≥67 = critical
 
+### Session 6 (Jan 22, 2026) - Premium Gradient Dashboard Redesign
+**Major Pivot:** Complete departure from Session 5's brutalist aesthetic to premium gradient-based visualization
+
+**Design Philosophy:**
+- Multi-color gradient systems for recovery (green→teal→yellow→orange→red) and strain (teal→blue→purple→pink)
+- Animated circular progress rings with glow effects
+- Tabbed navigation architecture for focused metric exploration
+- Contextual insights generated from baseline analysis
+- Health monitoring with metrics-in-range evaluation
+- Baseline band visualization for time-series data
+
+**New Core Components (`Views/Components/`):**
+
+| Component | Purpose |
+|-----------|---------|
+| `RecoveryRing.swift` | Animated circular recovery gauge with gradient progress and glow effects |
+| `StrainArc.swift` | 270° arc strain display with angular gradient and target indicator |
+| `BiometricSatellite.swift` | Compact HRV/RHR display with deviation indicators |
+| `InsightBanner.swift` | Context-aware insight display with icon and accent color |
+| `HealthMonitorBadge.swift` | Metrics-in-range status indicator |
+| `Charts/BaselineBandChart.swift` | Swift Charts time series with baseline band visualization |
+
+**Dashboard Tab Architecture (`Views/Dashboard/`):**
+
+| File | Description |
+|------|-------------|
+| `DashboardTabView.swift` | Tab bar controller with OVERVIEW/SLEEP/RECOVERY/STRAIN tabs |
+| `Tabs/OverviewTab.swift` | Main view with RecoveryRing, StrainArc, biometrics, insights |
+| `Tabs/SleepTab.swift` | Sleep duration ring, stages breakdown, efficiency stats |
+| `Tabs/RecoveryTab.swift` | Recovery details, component breakdown, biometric cards |
+| `Tabs/StrainTab.swift` | Strain details, activity stats, HR zones visualization |
+
+**New Services:**
+
+| Service | Purpose |
+|---------|---------|
+| `Insights/InsightGenerator.swift` | Generates contextual insights from metrics and baselines |
+| `Calculations/HealthMonitorEngine.swift` | Evaluates metrics against baselines for health monitoring |
+
+**Files Updated:**
+
+| File | Changes |
+|------|---------|
+| `Utilities/Theme.swift` | Complete overhaul with gradient system, recovery/strain color functions, glow modifiers, premium card styles |
+| `ViewModels/DashboardViewModel.swift` | Added 12+ computed properties: `recoveryCategory`, `weeklyRecoveryAvg`, `hrvDeviationPercent`, `strainScoreNormalized`, `optimalStrainTarget`, `primaryInsight`, health monitor properties |
+| `Views/Dashboard/DashboardView.swift` | Integrated new DashboardTabView, updated to premium styling |
+| `Views/Components/Charts/SparklineChart.swift` | Added alternate initializer for data parameter compatibility |
+
+**Key Features:**
+- Gradient themes: Recovery (green→teal→yellow→orange→red), Strain (teal→blue→purple→pink)
+- Animated progress rings with glow effects
+- Tabbed navigation: Overview, Sleep, Recovery, Strain
+- Contextual insights from daily metrics and baselines
+- Health monitoring with metrics-in-range evaluation
+- Baseline band charts showing personal baseline ranges
+- Premium visual polish with animations and gradients
+
 ---
 
 ## Current Project Structure
@@ -213,7 +270,8 @@ Whoops/
 │   │   ├── Tier2Calculator.swift
 │   │   ├── BaselineEngine.swift
 │   │   ├── RecoveryScoreEngine.swift
-│   │   └── StrainScoreEngine.swift
+│   │   ├── StrainScoreEngine.swift
+│   │   └── HealthMonitorEngine.swift
 │   ├── Persistence/
 │   │   ├── LocalStore.swift
 │   │   └── ExportService.swift
@@ -221,6 +279,8 @@ Whoops/
 │   │   └── GapDetector.swift
 │   ├── Habits/
 │   │   └── PatternDetector.swift
+│   ├── Insights/
+│   │   └── InsightGenerator.swift
 │   └── Notifications/
 │       └── NotificationManager.swift
 │
@@ -232,16 +292,22 @@ Whoops/
 │
 ├── Views/
 │   ├── Dashboard/
-│   │   ├── DashboardView.swift      # Brutalist zone-based layout
-│   │   ├── RecoveryCard.swift       # Industrial meter styling
-│   │   └── StrainCard.swift         # Binary color states
+│   │   ├── DashboardView.swift        # Main dashboard wrapper
+│   │   ├── DashboardTabView.swift     # Tab controller (Overview/Sleep/Recovery/Strain)
+│   │   ├── RecoveryCard.swift         # Legacy recovery card
+│   │   ├── StrainCard.swift           # Legacy strain card
+│   │   └── Tabs/
+│   │       ├── OverviewTab.swift      # Hero metrics: RecoveryRing, StrainArc, biometrics
+│   │       ├── SleepTab.swift         # Sleep duration ring, stages, efficiency
+│   │       ├── RecoveryTab.swift      # Recovery breakdown, biometric cards
+│   │       └── StrainTab.swift        # Strain details, activity, HR zones
 │   ├── Profile/
 │   │   └── ProfileTensorView.swift
 │   ├── Detail/
-│   │   └── MetricDetailView.swift   # Large mono numbers, formula cards
+│   │   └── MetricDetailView.swift     # Metric detail view with charts
 │   ├── Timeline/
-│   │   ├── TimelineView.swift       # Brutalist day rows
-│   │   └── ComparisonView.swift     # Hard-edged comparison
+│   │   ├── TimelineView.swift         # Historical timeline
+│   │   └── ComparisonView.swift       # Day comparison
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift
 │   ├── Habits/
@@ -250,11 +316,17 @@ Whoops/
 │   │   └── NotificationSettingsView.swift
 │   ├── Export/
 │   └── Components/
-│       ├── SovereignGauge.swift     # Horizontal bar meter (brutalist)
-│       ├── DeepDataCard.swift       # Sharp-edged data blocks
+│       ├── SovereignGauge.swift       # Legacy gauge component
+│       ├── DeepDataCard.swift         # Legacy data card
+│       ├── RecoveryRing.swift         # Animated circular recovery gauge
+│       ├── StrainArc.swift            # 270° arc strain display
+│       ├── BiometricSatellite.swift   # Compact HRV/RHR display
+│       ├── InsightBanner.swift        # Contextual insights
+│       ├── HealthMonitorBadge.swift   # Metrics-in-range indicator
 │       └── Charts/
 │           ├── SparklineChart.swift
-│           └── MetricLineChart.swift
+│           ├── MetricLineChart.swift
+│           └── BaselineBandChart.swift  # Time series with baseline bands
 │
 ├── Utilities/
 │   ├── Theme.swift                  # Brutalist design system
@@ -308,17 +380,18 @@ let filtered = allRecords.filter { $0.id.hasPrefix(prefix) }
 - Info.plist auto-generated via `GENERATE_INFOPLIST_FILE = YES`
 - HealthKit permissions via `INFOPLIST_KEY_NSHealthShareUsageDescription`
 
-### Brutalist Design System (Session 5)
+### Premium Gradient Design System (Session 6)
 - All UI forced to dark mode via `.preferredColorScheme(.dark)`
-- OLED black backgrounds (`#000000`) for battery savings
-- Single accent color: Rust Red (#FF2D00) for critical states
-- No rounded corners - all components use sharp rectangular edges
-- No gradients - flat colors only
-- No shadow/glow effects - hard borders instead
-- Typography: SF Mono Bold for numbers, uppercase labels with letter-spacing
-- Binary color states: bone (normal) vs rust (critical)
-- Horizontal bar meters replace circular gauges
-- Zone-based dashboard layout with hard dividers
+- Multi-color gradient systems:
+  - Recovery: green→teal→yellow→orange→red (0-100 scale)
+  - Strain: teal→blue→purple→pink (0-100 scale)
+- Animated circular progress rings with glow effects
+- Rounded corners and soft shadows for premium feel
+- Context-aware color coding based on metric values
+- Tabbed navigation for focused metric exploration
+- Baseline band visualization for time-series data
+- Insights system with contextual recommendations
+- Health monitoring with metrics-in-range tracking
 
 ---
 
@@ -331,7 +404,7 @@ Original uncorrupted source files: `/Users/saqlainmomin/Whoops/Whoops/`
 ## Next Steps
 
 1. ~~Build and test on device with real HealthKit data~~
-2. ~~Polish UI components~~ → Sovereign Dark theme (Session 3)
+2. ~~Polish UI components~~ → Sovereign Dark theme (Session 3) → Premium Gradient (Session 6)
 3. ~~Add sparkline graphs inside `DeepDataCard` components~~ → Session 4
 4. ~~Connect `ProfileTensorView` to actual user data persistence~~ → Session 4
 5. ~~Implement onboarding flow~~ → Session 4
@@ -339,13 +412,16 @@ Original uncorrupted source files: `/Users/saqlainmomin/Whoops/Whoops/`
 7. ~~Add timeline comparison mode~~ → Session 4
 8. ~~Implement smart notifications~~ → Session 4
 9. ~~Fix strain circle bug~~ → Session 4.1
-10. ~~Unify color system with score-based colors~~ → Session 4.1
+10. ~~Unify color system with score-based colors~~ → Session 4.1 → Session 6 (gradient system)
 11. ~~Implement 8pt spacing grid~~ → Session 4.1
 12. ~~Reduce UI noise (remove decorative elements)~~ → Session 4.1
-13. ~~Complete UI redesign with brutalist aesthetic~~ → Session 5
-14. Apply brutalist styling to remaining views (Onboarding, Habits, Settings, Profile)
-15. Add unit tests for calculators
-16. Test Recovery and Strain score calculations with real data
-17. Implement haptic feedback on interactions
-18. Add widget for home screen (Recovery/Strain at a glance)
-19. Add Apple Watch companion app
+13. ~~Complete UI redesign~~ → Brutalist (Session 5) → Premium Gradient (Session 6)
+14. ~~Implement tabbed dashboard architecture~~ → Session 6
+15. ~~Add insight generation system~~ → Session 6
+16. ~~Add health monitoring with baseline tracking~~ → Session 6
+17. Apply premium gradient styling to remaining views (Onboarding, Habits, Timeline, Settings, Profile)
+18. Add unit tests for calculators
+19. Test Recovery and Strain score calculations with real data
+20. Implement haptic feedback on interactions
+21. Add widget for home screen (Recovery/Strain at a glance)
+22. Add Apple Watch companion app

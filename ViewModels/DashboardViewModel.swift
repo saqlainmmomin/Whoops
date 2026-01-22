@@ -346,4 +346,107 @@ class DashboardViewModel: ObservableObject {
     var strainSparklineData: [Double] {
         weeklyMetrics.compactMap { $0.strainScore?.score }.map { Double($0) }
     }
+
+    // MARK: - New Dashboard Properties
+
+    /// Recovery category string (e.g., "Peak", "Good", "Moderate", "Low")
+    var recoveryCategory: String {
+        guard let score = todayMetrics?.recoveryScore?.score else { return "Unknown" }
+        switch score {
+        case 85...100: return "Peak"
+        case 67..<85: return "Good"
+        case 34..<67: return "Moderate"
+        case 1..<34: return "Low"
+        default: return "Critical"
+        }
+    }
+
+    /// Weekly average recovery score
+    var weeklyRecoveryAvg: Double? {
+        let scores = weeklyRecoveryScores
+        guard !scores.isEmpty else { return nil }
+        return Double(scores.reduce(0, +)) / Double(scores.count)
+    }
+
+    /// HRV deviation as percentage from baseline
+    var hrvDeviationPercent: Double? {
+        guard let hrv = todayMetrics?.hrv,
+              let baseline = sevenDayBaseline,
+              let avgHRV = baseline.averageHRV,
+              avgHRV > 0 else { return nil }
+
+        let hrvValue = hrv.nightlySDNN ?? hrv.averageSDNN
+        return ((hrvValue - avgHRV) / avgHRV) * 100
+    }
+
+    /// RHR deviation as percentage from baseline
+    var rhrDeviationPercent: Double? {
+        guard let rhr = todayMetrics?.heartRate?.restingBPM,
+              let baseline = sevenDayBaseline,
+              let avgRHR = baseline.averageRestingHR,
+              avgRHR > 0 else { return nil }
+
+        return ((rhr - avgRHR) / avgRHR) * 100
+    }
+
+    /// Strain score normalized to 0-21 scale (Whoop-style)
+    var strainScoreNormalized: Double {
+        guard let score = todayMetrics?.strainScore?.score else { return 0 }
+        // Convert 0-100 to 0-21 scale
+        return Double(score) / 100.0 * 21.0
+    }
+
+    /// Optimal strain target based on recovery
+    var optimalStrainTarget: Double? {
+        guard let recovery = todayMetrics?.recoveryScore?.score else { return nil }
+        // Higher recovery = higher strain capacity
+        switch recovery {
+        case 85...100: return 18.0
+        case 67..<85: return 14.0
+        case 34..<67: return 10.0
+        default: return 6.0
+        }
+    }
+
+    /// Weekly average strain on 0-21 scale
+    var weeklyStrainAvg: Double? {
+        let scores = weeklyStrainScores
+        guard !scores.isEmpty else { return nil }
+        let avgScore = Double(scores.reduce(0, +)) / Double(scores.count)
+        return avgScore / 100.0 * 21.0
+    }
+
+    /// Primary insight for today
+    var primaryInsight: Insight? {
+        guard let metrics = todayMetrics else { return nil }
+        return InsightGenerator.shared.getPrimaryInsight(metrics: metrics, baseline: sevenDayBaseline)
+    }
+
+    /// Health monitor result
+    private var healthMonitorResult: HealthMonitorResult {
+        guard let metrics = todayMetrics else {
+            return HealthMonitorResult(metricsInRange: 0, totalMetrics: 5, flaggedMetrics: [])
+        }
+
+        if let baseline = sevenDayBaseline {
+            return HealthMonitorEngine.shared.evaluate(metrics: metrics, baseline: baseline)
+        } else {
+            return HealthMonitorEngine.shared.evaluateWithDefaults(metrics: metrics)
+        }
+    }
+
+    /// Number of metrics within healthy range
+    var metricsInRange: Int {
+        healthMonitorResult.metricsInRange
+    }
+
+    /// Total number of monitored metrics
+    var totalMonitoredMetrics: Int {
+        healthMonitorResult.totalMetrics
+    }
+
+    /// List of flagged metric names
+    var flaggedMetrics: [String] {
+        healthMonitorResult.flaggedMetrics
+    }
 }

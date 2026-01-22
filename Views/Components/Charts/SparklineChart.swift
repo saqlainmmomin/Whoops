@@ -6,6 +6,20 @@ struct SparklineChart: View {
     let color: Color
     var height: CGFloat = 30
 
+    /// Alternative initializer using `data` parameter name
+    init(data: [Double], color: Color, height: CGFloat = 30) {
+        self.dataPoints = data
+        self.color = color
+        self.height = height
+    }
+
+    /// Original initializer using `dataPoints` parameter name
+    init(dataPoints: [Double], color: Color, height: CGFloat = 30) {
+        self.dataPoints = dataPoints
+        self.color = color
+        self.height = height
+    }
+
     private var chartData: [ChartDataPoint] {
         dataPoints.enumerated().map { index, value in
             ChartDataPoint(index: index, value: value)
