@@ -65,33 +65,23 @@ struct ContentView: View {
 }
 
 struct MainTabView: View {
+    @EnvironmentObject var healthKitManager: HealthKitManager
+
     var body: some View {
         TabView {
-            DashboardView()
+            DashboardView(healthKitManager: healthKitManager)
                 .tabItem {
-                    Image(systemName: "circle.hexagonpath")
-                    Text("Dashboard")
-                }
-
-            TimelineView()
-                .tabItem {
-                    Image(systemName: "calendar")
-                    Text("Timeline")
-                }
-
-            HabitsView()
-                .tabItem {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                    Text("Habits")
+                    Image(systemName: "house.fill")
+                    Text("Home")
                 }
 
             ProfileTensorView()
                 .tabItem {
-                    Image(systemName: "person.crop.circle")
+                    Image(systemName: "ellipsis")
                     Text("Profile")
                 }
         }
-        .accentColor(Theme.Colors.neonTeal)
+        .accentColor(Theme.Colors.whoopTeal)
     }
 }
 

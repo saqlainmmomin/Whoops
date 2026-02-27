@@ -9,8 +9,8 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: DashboardViewModel
 
-    init() {
-        _viewModel = StateObject(wrappedValue: DashboardViewModel(healthKitManager: HealthKitManager()))
+    init(healthKitManager: HealthKitManager) {
+        _viewModel = StateObject(wrappedValue: DashboardViewModel(healthKitManager: healthKitManager))
     }
 
     var body: some View {
@@ -44,49 +44,68 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Header Section
+    // MARK: - Header Section (Whoop-style)
 
     private var headerSection: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center, spacing: 0) {
+            // Profile avatar (left)
+            Circle()
+                .fill(Theme.Colors.whoopTeal.opacity(0.3))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.Colors.whoopTeal)
+                )
+
+            Spacer()
+
+            // TODAY navigation (center)
+            HStack(spacing: 12) {
+                Button(action: { /* TODO: Previous day */ }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Theme.Colors.textPrimary)
+                }
+
                 Text("TODAY")
-                    .font(Theme.Fonts.header(28))
+                    .font(Theme.Fonts.header(16))
                     .foregroundColor(Theme.Colors.textPrimary)
 
-                Text(formattedDate)
-                    .font(Theme.Fonts.mono(11))
-                    .foregroundColor(Theme.Colors.textSecondary)
-                    .tracking(2)
+                Button(action: { /* TODO: Next day */ }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Theme.Colors.textSecondary.opacity(0.5))
+                }
             }
 
             Spacer()
 
-            if viewModel.isLoading {
-                ProgressView()
-                    .tint(Theme.Colors.textSecondary)
-            }
+            // Battery/device indicator (right)
+            HStack(spacing: 4) {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(Theme.Colors.textSecondary)
+                } else {
+                    Text("53%")
+                        .font(Theme.Fonts.mono(12))
+                        .foregroundColor(Theme.Colors.textSecondary)
+                }
 
-            // Settings gear
-            NavigationLink(destination: Text("Settings")) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Theme.Colors.textSecondary)
+                Image(systemName: "battery.75")
+                    .font(.system(size: 16))
+                    .foregroundColor(Theme.Colors.whoopTeal)
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.md)
+        .padding(.vertical, 12)
         .background(Theme.Colors.surface)
-    }
-
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE MMM d"
-        return formatter.string(from: Date()).uppercased()
     }
 }
 
 #Preview {
-    DashboardView()
+    DashboardView(healthKitManager: HealthKitManager())
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
 }

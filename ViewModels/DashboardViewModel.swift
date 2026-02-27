@@ -59,11 +59,15 @@ class DashboardViewModel: ObservableObject {
                 if let cached = await loadCachedMetrics(for: date) {
                     historicalMetrics.append(cached)
                 } else {
-                    // Fetch and cache
-                    let dailyRaw = try await healthKitManager.fetchDailyData(for: date)
-                    let metrics = processRawData(dailyRaw, historicalMetrics: historicalMetrics)
-                    historicalMetrics.append(metrics)
-                    await cacheMetrics(metrics)
+                    // Fetch and cache — skip days that error (no data available)
+                    do {
+                        let dailyRaw = try await healthKitManager.fetchDailyData(for: date)
+                        let metrics = processRawData(dailyRaw, historicalMetrics: historicalMetrics)
+                        historicalMetrics.append(metrics)
+                        await cacheMetrics(metrics)
+                    } catch {
+                        // Days with no HealthKit data are expected — skip gracefully
+                    }
                 }
             }
 

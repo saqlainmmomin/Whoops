@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Session 7: Whoop-aligned Recovery Tab
-/// Focus on recovery score breakdown with horizontal progress bars
+/// Pixel-Perfect Whoop Recovery Tab
+/// Features recovery gauge, message card, statistics, and charts
 struct RecoveryTab: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var showRecoveryInfo = false
 
+    // Computed properties
     private var recoveryScore: Int {
         viewModel.todayMetrics?.recoveryScore?.score ?? 0
     }
@@ -17,246 +19,487 @@ struct RecoveryTab: View {
         viewModel.todayMetrics?.heartRate?.restingBPM ?? 0
     }
 
+    private var recoveryMessage: (title: String, message: String) {
+        RecoveryMessage.generate(score: recoveryScore)
+    }
+
+    private var accentColor: Color {
+        switch recoveryScore {
+        case 67...100: return Theme.Colors.whoopTeal
+        case 34..<67: return Theme.Colors.whoopYellow
+        default: return Color(hex: "#FF3B30")
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.moduleP) {
 
-                // Hero gauge (same as Overview)
-                CircularProgressGauge(
-                    value: Double(recoveryScore),
-                    color: Theme.Colors.recovery(score: recoveryScore),
-                    label: "Recovery",
-                    sublabel: nil
+                // HERO: Recovery Gauge
+                recoveryGauge
+                    .padding(.top, Theme.Spacing.moduleP)
+
+                // Message Card
+                MessageCard(
+                    title: recoveryMessage.title,
+                    message: recoveryMessage.message,
+                    accentColor: accentColor
                 )
-                .frame(width: 180, height: 180)
-
-                // 4 horizontal progress bars (breakdown)
-                VStack(spacing: 16) {
-                    RecoveryComponentBar(
-                        label: "HRV Deviation",
-                        value: viewModel.hrvDeviationPercent ?? 0,
-                        suffix: "%",
-                        progress: hrvComponentProgress,
-                        color: Theme.Colors.hrv(deviationPercent: viewModel.hrvDeviationPercent ?? 0)
-                    )
-
-                    RecoveryComponentBar(
-                        label: "Resting HR Deviation",
-                        value: viewModel.rhrDeviationPercent ?? 0,
-                        suffix: "%",
-                        progress: rhrComponentProgress,
-                        color: (viewModel.rhrDeviationPercent ?? 0) < 0 ? Theme.Colors.optimal : Theme.Colors.caution
-                    )
-
-                    RecoveryComponentBar(
-                        label: "Sleep Quality",
-                        value: Double(sleepPerformance),
-                        suffix: "%",
-                        progress: Double(sleepPerformance) / 100,
-                        color: Theme.Colors.sleepPerformance(score: sleepPerformance)
-                    )
-
-                    RecoveryComponentBar(
-                        label: "Previous Day Strain",
-                        value: previousDayStrain,
-                        suffix: "",
-                        progress: previousDayStrain / 21,
-                        color: Theme.Colors.neutral
-                    )
-                }
                 .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // 7-day trend sparkline (REPLACES "VS. PREVIOUS 30 DAYS")
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("7-DAY TREND")
-                        .font(Theme.Fonts.label(11))
-                        .foregroundColor(Theme.Colors.textSecondary)
+                // Statistics Section (VS. PREVIOUS 30 DAYS)
+                statisticsSection
+                    .padding(.horizontal, Theme.Spacing.moduleP)
 
-                    if !viewModel.recoverySparklineData.isEmpty {
-                        SparklineChart(
-                            data: viewModel.recoverySparklineData,
-                            color: Theme.Colors.optimal
-                        )
-                        .frame(height: 60)
-                    }
-                }
+                // What is Recovery?
+                WhatIsInfoCard(
+                    title: "What is Recovery?",
+                    description: "Discover the science behind Recovery and how it measures health and fitness.",
+                    onTap: { showRecoveryInfo = true }
+                )
                 .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // Explanation text
-                Text("Recovery indicates autonomic nervous system balance. Higher HRV and lower RHR signal readiness.")
-                    .font(Theme.Fonts.body)
-                    .foregroundColor(Theme.Colors.textTertiary)
+                // 7-Day Charts Section
+                chartsSection
                     .padding(.horizontal, Theme.Spacing.moduleP)
             }
-            .padding(.vertical, Theme.Spacing.moduleP)
+            .padding(.bottom, Theme.Spacing.moduleP)
         }
         .background(Theme.Colors.primary)
-    }
-
-    // MARK: - Computed Properties
-
-    private var hrvComponentProgress: Double {
-        guard let deviation = viewModel.hrvDeviationPercent else { return 0.5 }
-        // Normalize -30% to +30% to 0-1
-        return (deviation + 30) / 60
-    }
-
-    private var rhrComponentProgress: Double {
-        guard let deviation = viewModel.rhrDeviationPercent else { return 0.5 }
-        // Normalize -20% to +20% to 0-1 (inverted: lower is better)
-        return (-deviation + 20) / 40
-    }
-
-    private var sleepPerformance: Int {
-        guard let sleep = viewModel.todayMetrics?.sleep else { return 0 }
-        return Int(sleep.averageEfficiency)
-    }
-
-    private var previousDayStrain: Double {
-        // Get yesterday's strain from weekly metrics
-        guard viewModel.weeklyMetrics.count >= 2 else { return 0 }
-        let yesterdayIndex = viewModel.weeklyMetrics.count - 2
-        if let strain = viewModel.weeklyMetrics[yesterdayIndex].strainScore?.score {
-            return Double(strain) / 100.0 * 21.0
-        }
-        return 0
-    }
-}
-
-// MARK: - Legacy Components (kept for backward compatibility)
-
-struct RecoveryComponentsCard: View {
-    let recovery: RecoveryScore
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("SCORE BREAKDOWN")
-                .font(Theme.Fonts.label(11))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
-
-            ForEach(recovery.components) { component in
-                ComponentRow(component: component)
-            }
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
-        )
-    }
-}
-
-struct ComponentRow: View {
-    let component: ScoreComponent
-
-    var body: some View {
-        HStack {
-            Text(component.name.uppercased())
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .tracking(1)
-
-            Spacer()
-
-            Text(component.formattedContribution)
-                .font(Theme.Fonts.mono(12))
-                .foregroundStyle(Theme.Colors.textPrimary)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Theme.Colors.borderSubtle)
-                        .frame(width: geo.size.width)
-
-                    Rectangle()
-                        .fill(Theme.Colors.recoveryColor(for: component.normalizedValue))
-                        .frame(width: geo.size.width * (component.normalizedValue / 100))
-                }
-            }
-            .frame(width: 60, height: 4)
-            .clipShape(Capsule())
-        }
-    }
-}
-
-struct BiometricDetailCard: View {
-    let title: String
-    let value: String
-    let unit: String
-    let deviation: Double?
-    let trend: TrendDirection?
-    let sparklineData: [Double]
-    let positiveIsGood: Bool
-
-    private var deviationColor: Color {
-        guard let dev = deviation else { return Theme.Colors.textTertiary }
-        if positiveIsGood {
-            return dev >= 0 ? Theme.Colors.optimal : Theme.Colors.critical
-        } else {
-            return dev <= 0 ? Theme.Colors.optimal : Theme.Colors.caution
+        .sheet(isPresented: $showRecoveryInfo) {
+            recoveryInfoSheet
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+    // MARK: - Recovery Gauge (Whoop-style - label above)
+
+    private var recoveryGauge: some View {
+        VStack(spacing: 16) {
+            // RECOVERY label ABOVE gauge with info button
             HStack {
-                Text(title)
-                    .font(Theme.Fonts.label(11))
-                    .foregroundStyle(Theme.Colors.textTertiary)
-                    .tracking(1)
+                Spacer()
+
+                Text("RECOVERY")
+                    .font(Theme.Fonts.sectionHeader)
+                    .tracking(2)
+                    .foregroundColor(Theme.Colors.textSecondary)
 
                 Spacer()
 
-                if let t = trend {
-                    Image(systemName: trendIcon(for: t))
-                        .font(.system(size: 10))
-                        .foregroundStyle(trendColor(for: t))
+                Button(action: { showRecoveryInfo = true }) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(Theme.Colors.textSecondary)
                 }
             }
+            .padding(.horizontal, 40)
 
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(Theme.Fonts.display(24))
-                    .foregroundStyle(Theme.Colors.textPrimary)
+            // Gauge with percentage inside
+            ZStack {
+                // Background track
+                Circle()
+                    .stroke(Theme.Colors.tertiary, lineWidth: Theme.Dimensions.gaugeStrokeWidth)
 
-                Text(unit)
-                    .font(Theme.Fonts.label(10))
-                    .foregroundStyle(Theme.Colors.textTertiary)
+                // Progress arc with yellow gradient
+                Circle()
+                    .trim(from: 0, to: Double(recoveryScore) / 100.0)
+                    .stroke(
+                        AngularGradient(
+                            colors: [Theme.Colors.whoopYellow, Theme.Colors.whoopOrange],
+                            center: .center,
+                            startAngle: .degrees(-90),
+                            endAngle: .degrees(-90 + 360 * Double(recoveryScore) / 100)
+                        ),
+                        style: StrokeStyle(
+                            lineWidth: Theme.Dimensions.gaugeStrokeWidth,
+                            lineCap: .round
+                        )
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                // Center content - just the percentage with striking font
+                VStack(spacing: -4) {
+                    Text("\(recoveryScore)")
+                        .font(.system(size: 64, weight: .black, design: .rounded))
+                        .foregroundColor(Theme.Colors.textPrimary)
+                    + Text("%")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(Theme.Colors.textPrimary)
+                }
             }
+            .frame(width: Theme.Dimensions.standardGaugeDiameter, height: Theme.Dimensions.standardGaugeDiameter)
 
-            if let dev = deviation {
-                Text("\(dev >= 0 ? "+" : "")\(Int(dev))% from baseline")
-                    .font(Theme.Fonts.label(10))
-                    .foregroundStyle(deviationColor)
-            }
-
-            if !sparklineData.isEmpty {
-                SparklineChart(data: sparklineData, color: deviationColor)
-                    .frame(height: 30)
+            // Share button
+            Button(action: { /* TODO: Share recovery */ }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14))
+                    Text("SHARE")
+                        .font(Theme.Fonts.caption)
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(Theme.Colors.whoopYellow)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Theme.Colors.cardBackground)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Theme.Colors.whoopYellow.opacity(0.5), lineWidth: 1)
+                )
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func trendIcon(for trend: TrendDirection) -> String {
-        switch trend {
-        case .improving: return "arrow.up.right"
-        case .declining: return "arrow.down.right"
-        case .stable: return "arrow.right"
+    // MARK: - Statistics Section
+
+    private var statisticsSection: some View {
+        StatisticsSection(
+            title: "RECOVERY STATISTICS",
+            stats: [
+                StatRow(
+                    icon: "waveform.path.ecg",
+                    label: "HRV",
+                    value: "\(Int(hrvValue))ms",
+                    trend: viewModel.hrvTrend,
+                    baseline: viewModel.sevenDayBaseline?.averageHRV.map { "\(Int($0))ms" }
+                ),
+                StatRow(
+                    icon: "heart.fill",
+                    label: "Resting Heart Rate",
+                    value: "\(Int(rhrValue)) bpm",
+                    trend: invertedTrend(viewModel.rhrTrend),
+                    baseline: viewModel.sevenDayBaseline?.averageRestingHR.map { "\(Int($0)) bpm" }
+                ),
+                StatRow(
+                    icon: "lungs.fill",
+                    label: "Respiratory Rate",
+                    value: "N/A",
+                    trend: nil,
+                    baseline: nil
+                ),
+                StatRow(
+                    icon: "moon.fill",
+                    label: "Sleep Performance",
+                    value: "\(Int(viewModel.todayMetrics?.sleep?.averageEfficiency ?? 0))%",
+                    trend: viewModel.sleepTrend,
+                    baseline: nil
+                )
+            ],
+            rightLabel: "VS. PREVIOUS 30 DAYS"
+        )
+    }
+
+    // MARK: - Charts Section
+
+    private var chartsSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.moduleP) {
+            // Section Header
+            Text("VS. LAST 7 DAYS")
+                .whoopSectionHeader()
+
+            // Recovery Bar Chart
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recovery")
+                    .font(Theme.Fonts.caption)
+                    .foregroundColor(Theme.Colors.textPrimary)
+
+                RecoveryBarChart(data: recoveryChartData)
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
+
+            // HRV Line Chart
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Heart Rate Variability")
+                    .font(Theme.Fonts.caption)
+                    .foregroundColor(Theme.Colors.textPrimary)
+
+                SimpleLineChart(
+                    data: hrvChartData,
+                    color: Theme.Colors.whoopTeal
+                )
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
+
+            // RHR Line Chart
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Resting Heart Rate")
+                    .font(Theme.Fonts.caption)
+                    .foregroundColor(Theme.Colors.textPrimary)
+
+                SimpleLineChart(
+                    data: rhrChartData,
+                    color: Color(hex: "#FF6B6B")
+                )
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
         }
     }
 
-    private func trendColor(for trend: TrendDirection) -> Color {
+    // MARK: - Chart Data
+
+    private var recoveryChartData: [BarChartData] {
+        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayLabel = days[index % 7]
+            let score = Double(metric.recoveryScore?.score ?? 0)
+            return .percentage(label: dayLabel, value: score)
+        }
+    }
+
+    private var hrvChartData: [ChartDataPoint] {
+        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayLabel = days[index % 7]
+            let value = metric.hrv?.nightlySDNN ?? metric.hrv?.averageSDNN ?? 0
+            return ChartDataPoint(label: dayLabel, value: value)
+        }
+    }
+
+    private var rhrChartData: [ChartDataPoint] {
+        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayLabel = days[index % 7]
+            return ChartDataPoint(label: dayLabel, value: metric.heartRate?.restingBPM ?? 0)
+        }
+    }
+
+    // MARK: - Recovery Info Sheet
+
+    private var recoveryInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("What is Recovery?")
+                        .font(Theme.Fonts.mediumValue)
+                        .foregroundColor(Theme.Colors.textPrimary)
+
+                    Text("Recovery measures how prepared your body is to take on strain. It's calculated using your heart rate variability (HRV), resting heart rate, and sleep performance.")
+                        .font(Theme.Fonts.body)
+                        .foregroundColor(Theme.Colors.textSecondary)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recovery is influenced by:")
+                            .font(Theme.Fonts.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.Colors.textPrimary)
+
+                        BulletPoint(text: "Heart Rate Variability (HRV)")
+                        BulletPoint(text: "Resting Heart Rate")
+                        BulletPoint(text: "Sleep duration and quality")
+                        BulletPoint(text: "Previous day's strain")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Recovery Zones:")
+                            .font(Theme.Fonts.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.Colors.textPrimary)
+
+                        RecoveryZoneRow(range: "67-100%", label: "Green", description: "Peak recovery - ready for high strain")
+                        RecoveryZoneRow(range: "34-66%", label: "Yellow", description: "Moderate recovery - balance activity and rest")
+                        RecoveryZoneRow(range: "0-33%", label: "Red", description: "Low recovery - prioritize rest")
+                    }
+                }
+                .padding()
+            }
+            .background(Theme.Colors.primary)
+            .navigationTitle("Recovery")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { showRecoveryInfo = false }
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func invertedTrend(_ trend: TrendDirection?) -> TrendDirection? {
+        guard let trend = trend else { return nil }
         switch trend {
-        case .improving: return Theme.Colors.optimal
-        case .declining: return Theme.Colors.caution
-        case .stable: return Theme.Colors.neutral
+        case .improving: return .declining  // Lower RHR shows as up arrow in UI
+        case .declining: return .improving
+        case .stable: return .stable
+        }
+    }
+}
+
+// MARK: - Simple Line Chart with Tap Selection
+
+struct SimpleLineChart: View {
+    let data: [ChartDataPoint]
+    var color: Color = Theme.Colors.whoopTeal
+    var onSelect: ((Int) -> Void)?
+
+    @State private var selectedIndex: Int?
+
+    private var maxValue: Double {
+        max(data.map { $0.value }.max() ?? 1, 1)
+    }
+
+    private var minValue: Double {
+        data.map { $0.value }.filter { $0 > 0 }.min() ?? 0
+    }
+
+    private var valueRange: Double {
+        max(maxValue - minValue, 1)
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // Selection indicator
+            if let index = selectedIndex, index < data.count {
+                HStack {
+                    Text(data[index].label)
+                        .font(Theme.Fonts.footnote)
+                        .foregroundColor(Theme.Colors.textSecondary)
+                    Text(formatValue(data[index].value))
+                        .font(Theme.Fonts.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(color)
+                }
+                .transition(.opacity)
+            }
+
+            GeometryReader { geo in
+                ZStack {
+                    // Grid lines
+                    VStack(spacing: 0) {
+                        ForEach(0..<4) { _ in
+                            Spacer()
+                            Rectangle()
+                                .fill(Theme.Colors.borderSubtle)
+                                .frame(height: 1)
+                        }
+                        Spacer()
+                    }
+
+                    // Line
+                    LineShape(
+                        data: data.map { $0.value },
+                        minValue: minValue,
+                        maxValue: maxValue
+                    )
+                    .stroke(color.opacity(selectedIndex != nil ? 0.5 : 1.0), lineWidth: Theme.Dimensions.lineStrokeWidth)
+
+                    // Data points
+                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                        if point.value > 0 {
+                            let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
+                            let y = geo.size.height * (1 - CGFloat((point.value - minValue) / valueRange))
+
+                            Circle()
+                                .fill(pointColorForIndex(index))
+                                .frame(width: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter,
+                                       height: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter)
+                                .position(x: x, y: y)
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        if selectedIndex == index {
+                                            selectedIndex = nil
+                                        } else {
+                                            selectedIndex = index
+                                            onSelect?(index)
+                                        }
+                                    }
+                                }
+                        }
+                    }
+
+                    // Invisible tap targets for easier selection
+                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                        if point.value > 0 {
+                            let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
+                            let y = geo.size.height * (1 - CGFloat((point.value - minValue) / valueRange))
+
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: 30, height: geo.size.height)
+                                .position(x: x, y: geo.size.height / 2)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        if selectedIndex == index {
+                                            selectedIndex = nil
+                                        } else {
+                                            selectedIndex = index
+                                            onSelect?(index)
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                }
+            }
+            .frame(height: Theme.Dimensions.lineChartHeight)
+
+            // X-axis labels
+            HStack {
+                ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                    Text(point.label)
+                        .font(Theme.Fonts.footnote)
+                        .foregroundColor(selectedIndex == index ? color : Theme.Colors.textTertiary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    private func pointColorForIndex(_ index: Int) -> Color {
+        if let selected = selectedIndex {
+            return index == selected ? color : color.opacity(0.3)
+        }
+        return color
+    }
+
+    private func formatValue(_ value: Double) -> String {
+        if value >= 100 {
+            return "\(Int(value))"
+        } else if value >= 10 {
+            return String(format: "%.1f", value)
+        } else {
+            return String(format: "%.1f", value)
+        }
+    }
+}
+
+// MARK: - Recovery Zone Row
+
+struct RecoveryZoneRow: View {
+    let range: String
+    let label: String
+    let description: String
+
+    private var zoneColor: Color {
+        switch label.lowercased() {
+        case "green": return Theme.Colors.whoopTeal
+        case "yellow": return Theme.Colors.whoopYellow
+        case "red": return Color(hex: "#FF3B30")
+        default: return Theme.Colors.textSecondary
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(zoneColor)
+                .frame(width: 12, height: 12)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(range)
+                    .font(Theme.Fonts.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Theme.Colors.textPrimary)
+
+                Text(description)
+                    .font(Theme.Fonts.footnote)
+                    .foregroundColor(Theme.Colors.textSecondary)
+            }
         }
     }
 }

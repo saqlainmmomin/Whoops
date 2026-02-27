@@ -1,147 +1,216 @@
 import SwiftUI
 
-/// Session 7: Whoop-aligned Overview Tab
-/// Clean design with single recovery gauge and metric tiles
+/// Pixel-Perfect Whoop Overview Tab
+/// Features dual gauge hero, baseline info, activities, and key statistics
 struct OverviewTab: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var showBaselineVideo = false
+
+    // Computed properties for display
+    private var recoveryScore: Int {
+        viewModel.todayMetrics?.recoveryScore?.score ?? 0
+    }
+
+    private var strainScore: Double {
+        viewModel.strainScoreNormalized
+    }
+
+    private var hrvFormatted: String {
+        guard let hrv = viewModel.todayMetrics?.hrv else { return "--" }
+        let value = Int(hrv.nightlySDNN ?? hrv.averageSDNN)
+        return "\(value)ms"
+    }
+
+    private var sleepPerformanceFormatted: String {
+        guard let sleep = viewModel.todayMetrics?.sleep else { return "--" }
+        return "\(Int(sleep.averageEfficiency))%"
+    }
+
+    private var baselineDaysCompleted: Int {
+        // Calculate days with data in last 28 days
+        min(viewModel.weeklyMetrics.count, 28)
+    }
+
+    private var shouldShowBaselineCard: Bool {
+        baselineDaysCompleted < 28
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.moduleP) {
 
-                // HERO: Recovery gauge (SINGLE, not dual)
-                CircularProgressGauge(
-                    value: Double(viewModel.todayMetrics?.recoveryScore?.score ?? 0),
-                    color: Theme.Colors.recovery(score: viewModel.todayMetrics?.recoveryScore?.score ?? 0),
-                    label: "Recovery",
-                    sublabel: viewModel.recoveryCategory
+                // HERO: Dual Gauge (Recovery + Strain)
+                DualGaugeHero(
+                    recoveryScore: recoveryScore,
+                    strainScore: strainScore,
+                    hrvValue: hrvFormatted,
+                    sleepPerformance: sleepPerformanceFormatted
                 )
-                .frame(width: 200, height: 200)
                 .padding(.top, Theme.Spacing.moduleP)
 
-                // 4-metric tiles (2-column grid)
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: Theme.Spacing.cardGap) {
-
-                    MetricTile(
-                        icon: "waveform.path.ecg",
-                        value: formatHRV(viewModel.todayMetrics?.hrv),
-                        label: "HRV",
-                        sublabel: formatHRVDeviation(viewModel.hrvDeviationPercent),
-                        color: Theme.Colors.hrv(deviationPercent: viewModel.hrvDeviationPercent ?? 0)
-                    )
-
-                    MetricTile(
-                        icon: "heart.fill",
-                        value: formatRHR(viewModel.todayMetrics?.heartRate?.restingBPM),
-                        label: "RHR",
-                        sublabel: formatRHRTrend(viewModel.rhrTrend),
-                        color: Theme.Colors.neutral
-                    )
-
-                    MetricTile(
-                        icon: "flame.fill",
-                        value: String(format: "%.1f", viewModel.strainScoreNormalized),
-                        label: "Strain",
-                        sublabel: nil,
-                        color: Theme.Colors.strain(
-                            current: viewModel.strainScoreNormalized,
-                            target: viewModel.optimalStrainTarget ?? 14.0
-                        )
-                    )
-
-                    MetricTile(
-                        icon: "bed.double.fill",
-                        value: formatSleepDuration(viewModel.todayMetrics?.sleep),
-                        label: "Sleep",
-                        sublabel: formatSleepPerformance(viewModel.todayMetrics),
-                        color: sleepColor(viewModel.todayMetrics)
-                    )
-                }
-                .padding(.horizontal, Theme.Spacing.moduleP)
-
-                // Contextual insight
-                if let insight = viewModel.newPrimaryInsight {
-                    InsightCard(
-                        icon: insight.icon,
-                        heading: insight.title,
-                        body: insight.message,
-                        accentColor: insight.color
+                // Baseline Info Card (if < 28 days)
+                if shouldShowBaselineCard {
+                    BaselineInfoCard(
+                        daysCompleted: baselineDaysCompleted,
+                        totalDays: 28,
+                        onWatchVideo: { showBaselineVideo = true }
                     )
                     .padding(.horizontal, Theme.Spacing.moduleP)
                 }
 
-                // Activity feed: actual workouts only (NO "Start Activity" CTA)
-                if let workouts = viewModel.todayWorkouts, !workouts.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("ACTIVITY")
-                            .font(Theme.Fonts.label(11))
-                            .tracking(1)
-                            .foregroundColor(Theme.Colors.textSecondary)
-                            .padding(.horizontal, Theme.Spacing.moduleP)
+                // Alarm & Bedtime Row (now connected to AlarmManager)
+                AlarmBedtimeRow()
+                    .padding(.horizontal, Theme.Spacing.moduleP)
 
-                        ForEach(workouts) { workout in
-                            WorkoutRow(workout: workout)
-                        }
-                        .padding(.horizontal, Theme.Spacing.moduleP)
-                    }
-                }
+                // Activities Section
+                activitiesSection
+                    .padding(.horizontal, Theme.Spacing.moduleP)
+
+                // Key Statistics Section
+                keyStatisticsSection
+                    .padding(.horizontal, Theme.Spacing.moduleP)
             }
             .padding(.bottom, Theme.Spacing.moduleP)
         }
         .background(Theme.Colors.primary)
     }
 
-    // MARK: - Formatting Helpers
+    // MARK: - Activities Section
 
-    private func formatHRV(_ hrv: DailyHRVSummary?) -> String {
-        guard let hrv = hrv else { return "--" }
-        let value = Int(hrv.nightlySDNN ?? hrv.averageSDNN)
-        return "\(value)ms"
-    }
+    @ViewBuilder
+    private var activitiesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with "START ACTIVITY" button
+            HStack {
+                Text("TODAY'S ACTIVITIES")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Theme.Colors.textSecondary)
+                    .tracking(0.5)
 
-    private func formatHRVDeviation(_ deviation: Double?) -> String? {
-        guard let deviation = deviation else { return nil }
-        let sign = deviation >= 0 ? "+" : ""
-        return "\(sign)\(Int(deviation))%"
-    }
+                Spacer()
 
-    private func formatRHR(_ rhr: Double?) -> String {
-        guard let rhr = rhr else { return "--" }
-        return "\(Int(rhr)) bpm"
-    }
+                Button(action: { /* TODO: Start activity */ }) {
+                    HStack(spacing: 4) {
+                        Text("START ACTIVITY")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.Colors.whoopTeal)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Theme.Colors.whoopTeal)
+                    }
+                }
+            }
 
-    private func formatRHRTrend(_ trend: TrendDirection?) -> String? {
-        guard let trend = trend else { return nil }
-        switch trend {
-        case .improving: return "Lower"
-        case .declining: return "Higher"
-        case .stable: return "Stable"
-        default: return nil
+            // Sleep activity (always show if we have sleep data)
+            if let sleep = viewModel.todayMetrics?.sleep,
+               let bedtime = sleep.bedtime,
+               let wakeTime = sleep.wakeTime {
+                SleepActivityRow(
+                    bedtime: formatTime(bedtime),
+                    wakeTime: formatTime(wakeTime),
+                    duration: formatDuration(sleep.totalSleepHours),
+                    quality: nil
+                )
+            }
+
+            // Workout activities
+            if let workouts = viewModel.todayWorkouts {
+                ForEach(workouts) { workout in
+                    ActivityRow(
+                        icon: iconForWorkout(workout.type),
+                        activityType: workout.type.capitalized,
+                        timeRange: formatTimeRange(workout.startTime, duration: workout.duration),
+                        detail: formatDuration(workout.duration / 3600),
+                        iconColor: Theme.Colors.whoopCyan
+                    )
+                }
+            }
         }
     }
 
-    private func formatSleepDuration(_ sleep: DailySleepSummary?) -> String {
-        guard let sleep = sleep else { return "--" }
-        let hours = Int(sleep.totalSleepHours)
-        let minutes = Int((sleep.totalSleepHours - Double(hours)) * 60)
-        return "\(hours)h \(minutes)m"
+    // MARK: - Key Statistics Section
+
+    private var keyStatisticsSection: some View {
+        KeyStatisticsSection(
+            stats: [
+                KeyStat(
+                    icon: "waveform.path.ecg",
+                    label: "HRV",
+                    value: String(Int(viewModel.todayMetrics?.hrv?.nightlySDNN ?? viewModel.todayMetrics?.hrv?.averageSDNN ?? 0)),
+                    unit: "ms",
+                    trend: viewModel.hrvTrend,
+                    baseline: viewModel.sevenDayBaseline?.averageHRV.map { "\(Int($0))ms" }
+                ),
+                KeyStat(
+                    icon: "moon.fill",
+                    label: "Sleep Performance",
+                    value: String(Int(viewModel.todayMetrics?.sleep?.averageEfficiency ?? 0)),
+                    unit: "%",
+                    trend: viewModel.sleepTrend,
+                    baseline: nil
+                ),
+                KeyStat(
+                    icon: "flame.fill",
+                    label: "Calories",
+                    value: formatCalories(viewModel.todayMetrics?.activity?.activeEnergy ?? 0),
+                    trend: nil,
+                    baseline: viewModel.sevenDayBaseline?.averageActiveEnergy.map { formatCalories($0) }
+                ),
+                KeyStat(
+                    icon: "bed.double.fill",
+                    label: "Hours of Sleep",
+                    value: formatDuration(viewModel.todayMetrics?.sleep?.totalSleepHours ?? 0),
+                    trend: viewModel.sleepTrend,
+                    baseline: viewModel.sevenDayBaseline?.averageSleepDuration.map { formatDuration($0) }
+                )
+            ],
+            onCustomize: { /* TODO: Show customization sheet */ }
+        )
     }
 
-    private func formatSleepPerformance(_ metrics: DailyMetrics?) -> String? {
-        guard let metrics = metrics,
-              let sleep = metrics.sleep else { return nil }
-        let efficiency = Int(sleep.averageEfficiency)
-        return "\(efficiency)%"
+    // MARK: - Formatting Helpers
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 
-    private func sleepColor(_ metrics: DailyMetrics?) -> Color {
-        guard let metrics = metrics,
-              let sleep = metrics.sleep else { return Theme.Colors.neutral }
-        let efficiency = Int(sleep.averageEfficiency)
-        return Theme.Colors.sleepPerformance(score: efficiency)
+    private func formatTimeRange(_ start: Date, duration: TimeInterval) -> String {
+        let end = start.addingTimeInterval(duration)
+        return "\(formatTime(start)) - \(formatTime(end))"
+    }
+
+    private func formatDuration(_ hours: Double) -> String {
+        let totalMinutes = Int(hours * 60)
+        let h = totalMinutes / 60
+        let m = totalMinutes % 60
+        if h > 0 {
+            return "\(h)h \(m)m"
+        } else {
+            return "\(m)m"
+        }
+    }
+
+    private func formatCalories(_ value: Double) -> String {
+        if value >= 1000 {
+            return String(format: "%.1fk", value / 1000)
+        } else {
+            return "\(Int(value))"
+        }
+    }
+
+    private func iconForWorkout(_ type: String) -> String {
+        switch type.lowercased() {
+        case "running": return "figure.run"
+        case "cycling": return "figure.outdoor.cycle"
+        case "swimming": return "figure.pool.swim"
+        case "walking": return "figure.walk"
+        case "strength", "functional strength training": return "dumbbell.fill"
+        case "yoga": return "figure.mind.and.body"
+        case "hiit", "high intensity interval training": return "bolt.fill"
+        default: return "figure.mixed.cardio"
+        }
     }
 }
 
