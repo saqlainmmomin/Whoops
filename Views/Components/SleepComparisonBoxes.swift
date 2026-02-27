@@ -64,15 +64,23 @@ struct SleepComparisonBox: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
+            // Gap S-3: Large value (~48pt per DESIGN_SPEC largeValue)
             Text(value)
-                .font(.system(size: 32, weight: .black, design: .rounded))
+                .font(.system(size: 48, weight: .black, design: .rounded))
                 .foregroundColor(style == .accent ? Theme.Colors.whoopTeal : Theme.Colors.textPrimary)
 
+            // Gap S-3: Label in outlined capsule badge below value
             Text(label)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(labelColor)
                 .tracking(0.5)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(labelColor.opacity(0.5), lineWidth: 1)
+                )
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)

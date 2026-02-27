@@ -71,65 +71,77 @@ struct RecoveryTab: View {
         }
     }
 
-    // MARK: - Recovery Gauge (Whoop-style - label above)
+    // MARK: - Recovery Gauge (Whoop-style - label INSIDE, 135° start)
+    // Gap R-1: Increase size to heroGaugeDiameter (200pt), fix gradient
+    // Gap R-2: Move "RECOVERY" label inside gauge
+    // Gap R-7: Change start angle from -90° to 135° per DESIGN_SPEC §8.1
 
     private var recoveryGauge: some View {
         VStack(spacing: 16) {
-            // RECOVERY label ABOVE gauge with info button
-            HStack {
-                Spacer()
-
-                Text("RECOVERY")
-                    .font(Theme.Fonts.sectionHeader)
-                    .tracking(2)
-                    .foregroundColor(Theme.Colors.textSecondary)
-
-                Spacer()
-
-                Button(action: { showRecoveryInfo = true }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(Theme.Colors.textSecondary)
-                }
-            }
-            .padding(.horizontal, 40)
-
-            // Gauge with percentage inside
+            // Gauge with RECOVERY label + percentage inside
             ZStack {
-                // Background track
+                // Background track (270° arc from 135°)
                 Circle()
-                    .stroke(Theme.Colors.tertiary, lineWidth: Theme.Dimensions.gaugeStrokeWidth)
+                    .trim(from: 0, to: 0.75) // 270° arc
+                    .stroke(
+                        Theme.Colors.tertiary,
+                        style: StrokeStyle(lineWidth: Theme.Dimensions.gaugeStrokeWidth, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(135))
 
-                // Progress arc with yellow gradient
+                // Progress arc with yellow → orange gradient
+                // Per DESIGN_SPEC §8.1: starts at 135°, sweeps 270° × progress
                 Circle()
-                    .trim(from: 0, to: Double(recoveryScore) / 100.0)
+                    .trim(from: 0, to: Double(recoveryScore) / 100.0 * 0.75)
                     .stroke(
                         AngularGradient(
                             colors: [Theme.Colors.whoopYellow, Theme.Colors.whoopOrange],
                             center: .center,
-                            startAngle: .degrees(-90),
-                            endAngle: .degrees(-90 + 360 * Double(recoveryScore) / 100)
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(270 * Double(recoveryScore) / 100.0)
                         ),
                         style: StrokeStyle(
                             lineWidth: Theme.Dimensions.gaugeStrokeWidth,
                             lineCap: .round
                         )
                     )
-                    .rotationEffect(.degrees(-90))
+                    .rotationEffect(.degrees(135))
 
-                // Center content - just the percentage with striking font
-                VStack(spacing: -4) {
-                    Text("\(recoveryScore)")
-                        .font(.system(size: 64, weight: .black, design: .rounded))
-                        .foregroundColor(Theme.Colors.textPrimary)
-                    + Text("%")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.Colors.textPrimary)
+                // Center content: RECOVERY label + percentage + info button
+                VStack(spacing: 4) {
+                    Text("RECOVERY")
+                        .font(Theme.Fonts.sectionHeader)
+                        .tracking(2)
+                        .foregroundColor(Theme.Colors.textSecondary)
+
+                    // Large percentage value
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text("\(recoveryScore)")
+                            .font(.system(size: 72, weight: .black, design: .rounded))
+                            .foregroundColor(Theme.Colors.textPrimary)
+                        Text("%")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.Colors.textPrimary)
+                    }
                 }
-            }
-            .frame(width: Theme.Dimensions.standardGaugeDiameter, height: Theme.Dimensions.standardGaugeDiameter)
 
-            // Share button
+                // Info button (top-right)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: { showRecoveryInfo = true }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(Theme.Colors.textSecondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            }
+            .frame(width: Theme.Dimensions.heroGaugeDiameter, height: Theme.Dimensions.heroGaugeDiameter)
+
+            // Share button (below gauge)
             Button(action: { /* TODO: Share recovery */ }) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up")
@@ -166,7 +178,7 @@ struct RecoveryTab: View {
                 ),
                 StatRow(
                     icon: "heart.fill",
-                    label: "Resting Heart Rate",
+                    label: "RHR",
                     value: "\(Int(rhrValue)) bpm",
                     trend: invertedTrend(viewModel.rhrTrend),
                     baseline: viewModel.sevenDayBaseline?.averageRestingHR.map { "\(Int($0)) bpm" }
@@ -191,6 +203,7 @@ struct RecoveryTab: View {
     }
 
     // MARK: - Charts Section
+    // Gap R-8: Chart cards with icon + UPPERCASE title + chevron header
 
     private var chartsSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.moduleP) {
@@ -200,10 +213,7 @@ struct RecoveryTab: View {
 
             // Recovery Bar Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Recovery")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "bell.fill", title: "RECOVERY")
                 RecoveryBarChart(data: recoveryChartData)
             }
             .padding(Theme.Dimensions.cardPadding)
@@ -211,10 +221,7 @@ struct RecoveryTab: View {
 
             // HRV Line Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Heart Rate Variability")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "waveform.path.ecg", title: "HEART RATE VARIABILITY")
                 SimpleLineChart(
                     data: hrvChartData,
                     color: Theme.Colors.whoopTeal
@@ -225,10 +232,7 @@ struct RecoveryTab: View {
 
             // RHR Line Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Resting Heart Rate")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "heart.fill", title: "RESTING HEART RATE")
                 SimpleLineChart(
                     data: rhrChartData,
                     color: Color(hex: "#FF6B6B")
@@ -240,30 +244,44 @@ struct RecoveryTab: View {
     }
 
     // MARK: - Chart Data
+    // Gap S-11: Two-line day labels
+
+    private var weekDayLabels: [(label: String, secondary: String, isToday: Bool)] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<7).reversed().map { daysAgo in
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "d"
+            return (label: dayFormatter.string(from: date), secondary: dateFormatter.string(from: date), isToday: daysAgo == 0)
+        }
+    }
 
     private var recoveryChartData: [BarChartData] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let score = Double(metric.recoveryScore?.score ?? 0)
-            return .percentage(label: dayLabel, value: score)
+            return .percentage(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: score, isToday: dayInfo.isToday)
         }
     }
 
     private var hrvChartData: [ChartDataPoint] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let value = metric.hrv?.nightlySDNN ?? metric.hrv?.averageSDNN ?? 0
-            return ChartDataPoint(label: dayLabel, value: value)
+            return ChartDataPoint(label: dayInfo.label, value: value)
         }
     }
 
     private var rhrChartData: [ChartDataPoint] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
-            return ChartDataPoint(label: dayLabel, value: metric.heartRate?.restingBPM ?? 0)
+            let dayInfo = labels[index % labels.count]
+            return ChartDataPoint(label: dayInfo.label, value: metric.heartRate?.restingBPM ?? 0)
         }
     }
 
@@ -366,72 +384,93 @@ struct SimpleLineChart: View {
                 .transition(.opacity)
             }
 
-            GeometryReader { geo in
-                ZStack {
-                    // Grid lines
-                    VStack(spacing: 0) {
-                        ForEach(0..<4) { _ in
+            // Y-axis range indicator (max → min)
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(formatValue(maxValue))
+                        .font(.system(size: 9, weight: .regular))
+                        .foregroundColor(Theme.Colors.textTertiary)
+                    Spacer()
+                    Text(formatValue(minValue > 0 ? minValue : 0))
+                        .font(.system(size: 9, weight: .regular))
+                        .foregroundColor(Theme.Colors.textTertiary)
+                }
+                .frame(width: 28)
+
+                GeometryReader { geo in
+                    ZStack {
+                        // Grid lines
+                        VStack(spacing: 0) {
+                            ForEach(0..<4) { _ in
+                                Spacer()
+                                Rectangle()
+                                    .fill(Theme.Colors.borderSubtle)
+                                    .frame(height: 1)
+                            }
                             Spacer()
-                            Rectangle()
-                                .fill(Theme.Colors.borderSubtle)
-                                .frame(height: 1)
                         }
-                        Spacer()
-                    }
 
-                    // Line
-                    LineShape(
-                        data: data.map { $0.value },
-                        minValue: minValue,
-                        maxValue: maxValue
-                    )
-                    .stroke(color.opacity(selectedIndex != nil ? 0.5 : 1.0), lineWidth: Theme.Dimensions.lineStrokeWidth)
+                        // Line
+                        LineShape(
+                            data: data.map { $0.value },
+                            minValue: minValue,
+                            maxValue: maxValue
+                        )
+                        .stroke(color.opacity(selectedIndex != nil ? 0.5 : 1.0), lineWidth: Theme.Dimensions.lineStrokeWidth)
 
-                    // Data points
-                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
-                        if point.value > 0 {
-                            let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
-                            let y = geo.size.height * (1 - CGFloat((point.value - minValue) / valueRange))
+                        // Data points + value labels
+                        ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                            if point.value > 0 {
+                                let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
+                                let y = geo.size.height * (1 - CGFloat((point.value - minValue) / valueRange))
 
-                            Circle()
-                                .fill(pointColorForIndex(index))
-                                .frame(width: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter,
-                                       height: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter)
-                                .position(x: x, y: y)
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        if selectedIndex == index {
-                                            selectedIndex = nil
-                                        } else {
-                                            selectedIndex = index
-                                            onSelect?(index)
+                                // Value label above each point
+                                if selectedIndex == nil || selectedIndex == index {
+                                    Text(formatValue(point.value))
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundColor(selectedIndex == index ? color : Theme.Colors.textSecondary)
+                                        .position(x: x, y: max(y - 14, 8))
+                                }
+
+                                Circle()
+                                    .fill(pointColorForIndex(index))
+                                    .frame(width: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter,
+                                           height: selectedIndex == index ? Theme.Dimensions.dataPointDiameter * 1.5 : Theme.Dimensions.dataPointDiameter)
+                                    .position(x: x, y: y)
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            if selectedIndex == index {
+                                                selectedIndex = nil
+                                            } else {
+                                                selectedIndex = index
+                                                onSelect?(index)
+                                            }
                                         }
                                     }
-                                }
+                            }
                         }
-                    }
 
-                    // Invisible tap targets for easier selection
-                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
-                        if point.value > 0 {
-                            let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
-                            let y = geo.size.height * (1 - CGFloat((point.value - minValue) / valueRange))
+                        // Invisible tap targets for easier selection
+                        ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                            if point.value > 0 {
+                                let x = geo.size.width * CGFloat(index) / CGFloat(max(data.count - 1, 1))
 
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: 30, height: geo.size.height)
-                                .position(x: x, y: geo.size.height / 2)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        if selectedIndex == index {
-                                            selectedIndex = nil
-                                        } else {
-                                            selectedIndex = index
-                                            onSelect?(index)
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .frame(width: 30, height: geo.size.height)
+                                    .position(x: x, y: geo.size.height / 2)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            if selectedIndex == index {
+                                                selectedIndex = nil
+                                            } else {
+                                                selectedIndex = index
+                                                onSelect?(index)
+                                            }
                                         }
                                     }
-                                }
+                            }
                         }
                     }
                 }
@@ -440,6 +479,7 @@ struct SimpleLineChart: View {
 
             // X-axis labels
             HStack {
+                Spacer().frame(width: 28) // Match Y-axis label width
                 ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
                     Text(point.label)
                         .font(Theme.Fonts.footnote)

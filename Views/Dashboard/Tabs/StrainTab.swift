@@ -71,60 +71,71 @@ struct StrainTab: View {
         }
     }
 
-    // MARK: - Strain Gauge (Whoop-style - label above, no target)
+    // MARK: - Strain Gauge (Whoop-style - label INSIDE, 135° start)
+    // Gap ST-1: Increase size to heroGaugeDiameter (200pt), fix gradient
+    // Gap ST-2: Move "STRAIN" label inside gauge
 
     private var strainGauge: some View {
         VStack(spacing: 16) {
-            // STRAIN label ABOVE gauge with info button
-            HStack {
-                Spacer()
-
-                Text("STRAIN")
-                    .font(Theme.Fonts.sectionHeader)
-                    .tracking(2)
-                    .foregroundColor(Theme.Colors.textSecondary)
-
-                Spacer()
-
-                Button(action: { showStrainInfo = true }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(Theme.Colors.textSecondary)
-                }
-            }
-            .padding(.horizontal, 40)
-
-            // Gauge with value inside (no target indicator)
+            // Gauge with STRAIN label + value inside
             ZStack {
-                // Background track
+                // Background track (270° arc from 135°)
                 Circle()
-                    .stroke(Theme.Colors.tertiary, lineWidth: Theme.Dimensions.gaugeStrokeWidth)
+                    .trim(from: 0, to: 0.75) // 270° arc
+                    .stroke(
+                        Theme.Colors.tertiary,
+                        style: StrokeStyle(lineWidth: Theme.Dimensions.gaugeStrokeWidth, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(135))
 
-                // Progress arc with cyan gradient
+                // Progress arc with cyan → dark cyan gradient
+                // Per DESIGN_SPEC §8.2: starts at 135°, sweeps 270° × progress
                 Circle()
-                    .trim(from: 0, to: strainScore / 21.0)
+                    .trim(from: 0, to: (strainScore / 21.0) * 0.75)
                     .stroke(
                         AngularGradient(
                             colors: [Theme.Colors.whoopCyan, Theme.Colors.whoopCyanDark],
                             center: .center,
-                            startAngle: .degrees(-90),
-                            endAngle: .degrees(-90 + 360 * strainScore / 21)
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(270 * strainScore / 21.0)
                         ),
                         style: StrokeStyle(
                             lineWidth: Theme.Dimensions.gaugeStrokeWidth,
                             lineCap: .round
                         )
                     )
-                    .rotationEffect(.degrees(-90))
+                    .rotationEffect(.degrees(135))
 
-                // Center content - just the value with striking font
-                Text(String(format: "%.1f", strainScore))
-                    .font(.system(size: 64, weight: .black, design: .rounded))
-                    .foregroundColor(Theme.Colors.whoopCyan)
+                // Center content: STRAIN label + value
+                VStack(spacing: 4) {
+                    Text("STRAIN")
+                        .font(Theme.Fonts.sectionHeader)
+                        .tracking(2)
+                        .foregroundColor(Theme.Colors.textSecondary)
+
+                    // Large strain value
+                    Text(String(format: "%.1f", strainScore))
+                        .font(.system(size: 72, weight: .black, design: .rounded))
+                        .foregroundColor(Theme.Colors.whoopCyan)
+                }
+
+                // Info button (top-right)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: { showStrainInfo = true }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(Theme.Colors.textSecondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(8)
             }
-            .frame(width: Theme.Dimensions.standardGaugeDiameter, height: Theme.Dimensions.standardGaugeDiameter)
+            .frame(width: Theme.Dimensions.heroGaugeDiameter, height: Theme.Dimensions.heroGaugeDiameter)
 
-            // Share button
+            // Share button (below gauge)
             Button(action: { /* TODO: Share strain */ }) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up")
@@ -195,6 +206,7 @@ struct StrainTab: View {
     }
 
     // MARK: - Charts Section
+    // Gap ST-5: Chart cards with icon + UPPERCASE title + chevron header
 
     private var chartsSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.moduleP) {
@@ -204,10 +216,7 @@ struct StrainTab: View {
 
             // Strain Bar Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Strain")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "bolt.fill", title: "STRAIN")
                 StrainBarChart(data: strainChartData)
             }
             .padding(Theme.Dimensions.cardPadding)
@@ -215,10 +224,7 @@ struct StrainTab: View {
 
             // Average HR Line Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Average Heart Rate")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "heart.fill", title: "AVERAGE HEART RATE")
                 SimpleLineChart(
                     data: avgHRChartData,
                     color: Color(hex: "#FF6B6B")
@@ -229,10 +235,7 @@ struct StrainTab: View {
 
             // Calories Bar Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Calories")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "flame.fill", title: "CALORIES")
                 VerticalBarChart(
                     data: caloriesChartData,
                     barColor: Theme.Colors.whoopTeal
@@ -244,30 +247,44 @@ struct StrainTab: View {
     }
 
     // MARK: - Chart Data
+    // Gap S-11: Two-line day labels
+
+    private var weekDayLabels: [(label: String, secondary: String, isToday: Bool)] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<7).reversed().map { daysAgo in
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "d"
+            return (label: dayFormatter.string(from: date), secondary: dateFormatter.string(from: date), isToday: daysAgo == 0)
+        }
+    }
 
     private var strainChartData: [BarChartData] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let strainValue = Double(metric.strainScore?.score ?? 0) / 100.0 * 21.0
-            return .strain(label: dayLabel, value: strainValue)
+            return .strain(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: strainValue, isToday: dayInfo.isToday)
         }
     }
 
     private var avgHRChartData: [ChartDataPoint] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
-            return ChartDataPoint(label: dayLabel, value: metric.heartRate?.averageBPM ?? 0)
+            let dayInfo = labels[index % labels.count]
+            return ChartDataPoint(label: dayInfo.label, value: metric.heartRate?.averageBPM ?? 0)
         }
     }
 
     private var caloriesChartData: [BarChartData] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let calories = metric.activity?.activeEnergy ?? 0
-            return .calories(label: dayLabel, value: calories)
+            return .calories(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: calories, isToday: dayInfo.isToday)
         }
     }
 

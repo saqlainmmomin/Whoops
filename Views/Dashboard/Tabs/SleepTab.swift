@@ -83,63 +83,19 @@ struct SleepTab: View {
         }
     }
 
-    // MARK: - Sleep Performance Hero (Whoop-style - no gauge)
+    // MARK: - Sleep Performance Hero (Whoop-style - DashedGauge)
+    // Gap S-1: Use DashedGauge instead of plain text
+    // Gap S-2: "SLEEP PERFORMANCE" label inside gauge
 
     private var sleepPerformanceHero: some View {
-        VStack(spacing: 12) {
-            // Header with info button
-            HStack {
-                Spacer()
-
-                Text("SLEEP")
-                    .font(Theme.Fonts.sectionHeader)
-                    .tracking(2)
-                    .foregroundColor(Theme.Colors.textSecondary)
-
-                Spacer()
-
-                Button(action: { showSleepInfo = true }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(Theme.Colors.textSecondary)
-                }
-            }
-            .padding(.horizontal, 20)
-
-            Text("PERFORMANCE")
-                .font(Theme.Fonts.sectionHeader)
-                .tracking(2)
-                .foregroundColor(Theme.Colors.textSecondary)
-
-            // Large percentage text with striking font
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("\(sleepPerformance)")
-                    .font(.system(size: 72, weight: .black, design: .rounded))
-                    .foregroundColor(Theme.Colors.whoopTeal)
-                Text("%")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundColor(Theme.Colors.whoopTeal)
-            }
-
-            // Share button
-            Button(action: { /* TODO: Share sleep */ }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 14))
-                    Text("SHARE")
-                        .font(Theme.Fonts.caption)
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(Theme.Colors.whoopTeal)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Theme.Colors.cardBackground)
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Theme.Colors.whoopTeal.opacity(0.5), lineWidth: 1)
-                )
-            }
+        VStack(spacing: 16) {
+            // DashedGauge with SLEEP PERFORMANCE inside
+            DashedGauge(
+                value: sleepPerformance,
+                label: "Sleep Performance",
+                onShare: { /* TODO: Share sleep */ },
+                onInfo: { showSleepInfo = true }
+            )
         }
         .padding(.vertical, 20)
     }
@@ -205,6 +161,7 @@ struct SleepTab: View {
     }
 
     // MARK: - Charts Section
+    // Gap S-10: Chart cards with icon + UPPERCASE title + chevron header
 
     private var chartsSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.moduleP) {
@@ -214,21 +171,15 @@ struct SleepTab: View {
 
             // Sleep Performance Bar Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Sleep Performance")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "moon.fill", title: "SLEEP PERFORMANCE")
                 RecoveryBarChart(data: sleepPerformanceChartData)
             }
-            .whoopCard()
             .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
 
             // Hours vs Need Line Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Hours vs Need")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "clock.fill", title: "HOURS VS. NEED")
                 DualLineChart(
                     primaryData: hoursSleptChartData,
                     secondaryData: hoursNeededChartData,
@@ -241,10 +192,7 @@ struct SleepTab: View {
 
             // Time in Bed Bar Chart
             VStack(alignment: .leading, spacing: 8) {
-                Text("Time in Bed")
-                    .font(Theme.Fonts.caption)
-                    .foregroundColor(Theme.Colors.textPrimary)
-
+                ChartCardHeader(icon: "bed.double.fill", title: "TIME IN BED")
                 VerticalBarChart(
                     data: timeInBedChartData,
                     barColor: Theme.Colors.stageDeep
@@ -256,35 +204,50 @@ struct SleepTab: View {
     }
 
     // MARK: - Chart Data
+    // Gap S-11: Two-line day labels with "DayName\nDate" format
+
+    /// Generate 7-day labels with proper day abbreviations and dates
+    private var weekDayLabels: [(label: String, secondary: String, isToday: Bool)] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<7).reversed().map { daysAgo in
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE" // Mon, Tue, Wed...
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "d" // 1, 2, 3...
+            return (label: dayFormatter.string(from: date), secondary: dateFormatter.string(from: date), isToday: daysAgo == 0)
+        }
+    }
 
     private var sleepPerformanceChartData: [BarChartData] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let performance = metric.sleep?.averageEfficiency ?? 0
-            return .percentage(label: dayLabel, value: performance)
+            return .percentage(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: performance, isToday: dayInfo.isToday)
         }
     }
 
     private var hoursSleptChartData: [ChartDataPoint] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
-            return ChartDataPoint(label: dayLabel, value: metric.sleep?.totalSleepHours ?? 0)
+            let dayInfo = labels[index % labels.count]
+            return ChartDataPoint(label: dayInfo.label, value: metric.sleep?.totalSleepHours ?? 0)
         }
     }
 
     private var hoursNeededChartData: [ChartDataPoint] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
-        return days.map { ChartDataPoint(label: $0, value: 7.5) }
+        let labels = weekDayLabels
+        return labels.map { ChartDataPoint(label: $0.label, value: 7.5) }
     }
 
     private var timeInBedChartData: [BarChartData] {
-        let days = ["M", "T", "W", "T", "F", "S", "S"]
+        let labels = weekDayLabels
         return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
-            let dayLabel = days[index % 7]
+            let dayInfo = labels[index % labels.count]
             let hours = metric.sleep?.primarySession?.totalDurationHours ?? 0
-            return BarChartData(label: dayLabel, value: hours, formattedValue: formatDuration(hours))
+            return BarChartData(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: hours, formattedValue: formatDuration(hours), isToday: dayInfo.isToday)
         }
     }
 

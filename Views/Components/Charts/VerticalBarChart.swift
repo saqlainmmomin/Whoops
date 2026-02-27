@@ -38,18 +38,31 @@ struct VerticalBarChart: View {
             GeometryReader { geo in
                 HStack(alignment: .bottom, spacing: barGap) {
                     ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
-                        VStack(spacing: 4) {
-                            // Value label
-                            if showValues && selectedIndex == nil {
-                                Text(item.formattedValue)
-                                    .font(Theme.Fonts.footnote)
-                                    .foregroundColor(Theme.Colors.textSecondary)
+                        ZStack(alignment: .bottom) {
+                            // "today" column background highlight
+                            if item.isToday {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Theme.Colors.tertiary.opacity(0.4))
                             }
 
-                            // Bar
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(barColorForIndex(index, value: item.value))
-                                .frame(height: max(4, geo.size.height * 0.7 * (item.value / maxValue)))
+                            VStack(spacing: 4) {
+                                // Value label — always visible above each bar
+                                if showValues {
+                                    Text(item.formattedValue)
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(
+                                            selectedIndex == index ? barColor :
+                                            (item.isToday ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
+                                        )
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
+                                }
+
+                                // Bar
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(barColorForIndex(index, value: item.value))
+                                    .frame(height: max(4, geo.size.height * 0.65 * (item.value / maxValue)))
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -72,14 +85,47 @@ struct VerticalBarChart: View {
             if showLabels {
                 HStack(spacing: barGap) {
                     ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
-                        Text(item.label)
-                            .font(Theme.Fonts.footnote)
-                            .foregroundColor(selectedIndex == index ? barColor : Theme.Colors.textTertiary)
-                            .frame(maxWidth: .infinity)
+                        VStack(spacing: 1) {
+                            Text(item.label)
+                                .font(.system(size: 10, weight: item.isToday ? .bold : .regular))
+                                .foregroundColor(selectedIndex == index ? barColor : (item.isToday ? Theme.Colors.textPrimary : Theme.Colors.textTertiary))
+                            if let secondary = item.secondaryLabel {
+                                Text(secondary)
+                                    .font(.system(size: 10, weight: item.isToday ? .bold : .regular))
+                                    .foregroundColor(selectedIndex == index ? barColor : (item.isToday ? Theme.Colors.textPrimary : Theme.Colors.textTertiary))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
+
+            // Summary row — avg value for context
+            if data.count > 1 {
+                let values = data.map { $0.value }.filter { $0 > 0 }
+                if !values.isEmpty {
+                    HStack(spacing: 16) {
+                        chartSummaryItem(label: "AVG", value: values.reduce(0, +) / Double(values.count))
+                        chartSummaryItem(label: "HIGH", value: values.max() ?? 0)
+                        chartSummaryItem(label: "LOW", value: values.min() ?? 0)
+                    }
+                    .padding(.top, 4)
+                }
+            }
         }
+    }
+
+    private func chartSummaryItem(label: String, value: Double) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(Theme.Colors.textTertiary)
+                .tracking(0.5)
+            Text(String(format: value >= 100 ? "%.0f" : "%.1f", value))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Theme.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func barColorForIndex(_ index: Int, value: Double) -> Color {
@@ -94,32 +140,37 @@ struct VerticalBarChart: View {
 }
 
 /// Model for bar chart data point
+/// Gap S-11: Supports two-line labels (day name + date) and today highlight
 struct BarChartData: Identifiable {
     let id = UUID()
     let label: String
+    let secondaryLabel: String? // Date number for two-line format
     let value: Double
     let formattedValue: String
+    let isToday: Bool
 
-    init(label: String, value: Double, formattedValue: String? = nil) {
+    init(label: String, secondaryLabel: String? = nil, value: Double, formattedValue: String? = nil, isToday: Bool = false) {
         self.label = label
+        self.secondaryLabel = secondaryLabel
         self.value = value
         self.formattedValue = formattedValue ?? "\(Int(value))"
+        self.isToday = isToday
     }
 
     /// Create from percentage (0-100)
-    static func percentage(label: String, value: Double) -> BarChartData {
-        BarChartData(label: label, value: value, formattedValue: "\(Int(value))%")
+    static func percentage(label: String, secondaryLabel: String? = nil, value: Double, isToday: Bool = false) -> BarChartData {
+        BarChartData(label: label, secondaryLabel: secondaryLabel, value: value, formattedValue: "\(Int(value))%", isToday: isToday)
     }
 
     /// Create from strain value (0-21)
-    static func strain(label: String, value: Double) -> BarChartData {
-        BarChartData(label: label, value: value, formattedValue: String(format: "%.1f", value))
+    static func strain(label: String, secondaryLabel: String? = nil, value: Double, isToday: Bool = false) -> BarChartData {
+        BarChartData(label: label, secondaryLabel: secondaryLabel, value: value, formattedValue: String(format: "%.1f", value), isToday: isToday)
     }
 
     /// Create from calories
-    static func calories(label: String, value: Double) -> BarChartData {
+    static func calories(label: String, secondaryLabel: String? = nil, value: Double, isToday: Bool = false) -> BarChartData {
         let formatted = value >= 1000 ? String(format: "%.1fk", value / 1000) : "\(Int(value))"
-        return BarChartData(label: label, value: value, formattedValue: formatted)
+        return BarChartData(label: label, secondaryLabel: secondaryLabel, value: value, formattedValue: formatted, isToday: isToday)
     }
 }
 
@@ -149,16 +200,28 @@ struct RecoveryBarChart: View {
             GeometryReader { geo in
                 HStack(alignment: .bottom, spacing: Theme.Dimensions.barChartGap) {
                     ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
-                        VStack(spacing: 4) {
-                            if selectedIndex == nil {
-                                Text(item.formattedValue)
-                                    .font(Theme.Fonts.footnote)
-                                    .foregroundColor(Theme.Colors.textSecondary)
+                        ZStack(alignment: .bottom) {
+                            // "today" column highlight
+                            if item.isToday {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Theme.Colors.tertiary.opacity(0.4))
                             }
 
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(barColorForIndex(index, score: item.value))
-                                .frame(height: max(4, geo.size.height * 0.7 * (item.value / 100)))
+                            VStack(spacing: 4) {
+                                // Value label — always visible, color-coded
+                                Text(item.formattedValue)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(
+                                        selectedIndex == index ? recoveryColor(for: item.value) :
+                                        (item.value > 0 ? recoveryColor(for: item.value).opacity(0.8) : Theme.Colors.textTertiary)
+                                    )
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(barColorForIndex(index, score: item.value))
+                                    .frame(height: max(4, geo.size.height * 0.65 * (item.value / 100)))
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -177,15 +240,47 @@ struct RecoveryBarChart: View {
             }
             .frame(height: Theme.Dimensions.barChartHeight)
 
+            // Two-line day labels
             HStack(spacing: Theme.Dimensions.barChartGap) {
                 ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
-                    Text(item.label)
-                        .font(Theme.Fonts.footnote)
-                        .foregroundColor(selectedIndex == index ? recoveryColor(for: item.value) : Theme.Colors.textTertiary)
-                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 1) {
+                        Text(item.label)
+                            .font(.system(size: 10, weight: item.isToday ? .bold : .regular))
+                            .foregroundColor(selectedIndex == index ? recoveryColor(for: item.value) : (item.isToday ? Theme.Colors.textPrimary : Theme.Colors.textTertiary))
+                        if let secondary = item.secondaryLabel {
+                            Text(secondary)
+                                .font(.system(size: 10, weight: item.isToday ? .bold : .regular))
+                                .foregroundColor(selectedIndex == index ? recoveryColor(for: item.value) : (item.isToday ? Theme.Colors.textPrimary : Theme.Colors.textTertiary))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
             }
+
+            // Summary row
+            let values = data.map { $0.value }.filter { $0 > 0 }
+            if !values.isEmpty {
+                HStack(spacing: 16) {
+                    recoverySummaryItem(label: "AVG", value: values.reduce(0, +) / Double(values.count))
+                    recoverySummaryItem(label: "HIGH", value: values.max() ?? 0)
+                    recoverySummaryItem(label: "LOW", value: values.min() ?? 0)
+                }
+                .padding(.top, 4)
+            }
         }
+    }
+
+    private func recoverySummaryItem(label: String, value: Double) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(Theme.Colors.textTertiary)
+                .tracking(0.5)
+            Text("\(Int(value))%")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(recoveryColor(for: value))
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func recoveryColor(for score: Double) -> Color {
