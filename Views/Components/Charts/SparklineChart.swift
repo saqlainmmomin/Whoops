@@ -20,9 +20,9 @@ struct SparklineChart: View {
         self.height = height
     }
 
-    private var chartData: [ChartDataPoint] {
+    private var chartData: [SparklineDataPoint] {
         dataPoints.enumerated().map { index, value in
-            ChartDataPoint(index: index, value: value)
+            SparklineDataPoint(index: index, value: value)
         }
     }
 
@@ -74,7 +74,7 @@ struct SparklineChart: View {
     }
 }
 
-private struct ChartDataPoint: Identifiable {
+private struct SparklineDataPoint: Identifiable {
     let id = UUID()
     let index: Int
     let value: Double

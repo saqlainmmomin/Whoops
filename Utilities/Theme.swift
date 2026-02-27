@@ -13,6 +13,22 @@ struct Theme {
         static let secondary = Color(hex: "#0A0A0A")     // Cards
         static let tertiary = Color(hex: "#1C1C1E")      // Elevated surfaces
 
+        // MARK: - Whoop Design System Colors (Pixel-Perfect)
+        static let whoopYellow = Color(hex: "#FFD700")      // Recovery ring
+        static let whoopOrange = Color(hex: "#FFA500")      // Recovery ring gradient end
+        static let whoopCyan = Color(hex: "#00BFFF")        // Strain ring
+        static let whoopCyanDark = Color(hex: "#0099CC")    // Strain ring gradient end
+        static let whoopTeal = Color(hex: "#00D4AA")        // Sleep accent, links, positive trends
+        static let cardBackground = Color(hex: "#1C1C1E")   // Card backgrounds
+        static let cardBackgroundAlt = Color(hex: "#2C2C2E") // Info cards, lighter variant
+        static let linkColor = Color(hex: "#00D4AA")        // CTAs, links
+
+        // Sleep Stage Colors
+        static let stageAwake = Color(hex: "#636366")
+        static let stageLight = Color(hex: "#5B9BD5")
+        static let stageDeep = Color(hex: "#7B68EE")
+        static let stageREM = Color(hex: "#BA68C8")
+
         // Legacy background names (backward compatibility)
         static let void = Color(hex: "#000000")
         static let surface = Color(hex: "#0A0A0B")
@@ -164,6 +180,42 @@ struct Theme {
 
     // MARK: - Gradients
     struct Gradients {
+        // MARK: - Whoop Pixel-Perfect Ring Gradients
+
+        /// Recovery ring gradient (yellow to orange) - Whoop style
+        static func recoveryRing(progress: Double) -> AngularGradient {
+            AngularGradient(
+                colors: [Colors.whoopYellow, Colors.whoopOrange],
+                center: .center,
+                startAngle: .degrees(135),
+                endAngle: .degrees(135 + 270 * min(progress, 1.0))
+            )
+        }
+
+        /// Strain ring gradient (cyan) - Whoop style
+        static func strainRing(progress: Double) -> AngularGradient {
+            AngularGradient(
+                colors: [Colors.whoopCyan, Colors.whoopCyanDark],
+                center: .center,
+                startAngle: .degrees(135),
+                endAngle: .degrees(135 + 270 * min(progress, 1.0))
+            )
+        }
+
+        /// Info card gradient (teal fade)
+        static let infoCard = LinearGradient(
+            colors: [Color(hex: "#00D4AA").opacity(0.2), Color.clear],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        /// Teal accent gradient for cards
+        static let tealAccent = LinearGradient(
+            colors: [Colors.whoopTeal.opacity(0.3), Colors.whoopTeal.opacity(0.1)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+
         static func recovery(for score: Double) -> LinearGradient {
             let colors: [Color] = switch score {
             case 85...100: [Color(hex: "#00D26A"), Color(hex: "#00F5A0"), Color(hex: "#00D9F5")]
@@ -233,8 +285,37 @@ struct Theme {
 
     // MARK: - Typography (SF Pro)
     struct Fonts {
-        /// Hero metrics (76%, 4.3, 108ms)
-        static let heroMetric = Font.system(size: 72, weight: .bold, design: .default)
+        /// Hero metrics (76%, 4.3, 108ms) - Sharp, condensed look
+        static let heroMetric = Font.system(size: 72, weight: .heavy, design: .default)
+
+        // MARK: - Whoop Typography Scale
+
+        /// Hero value - 72pt Heavy (main percentages: 58%, 66%) - More impactful than bold
+        static let hero = Font.system(size: 72, weight: .heavy, design: .default)
+
+        /// Hero number - Specialized for large display numbers with tighter tracking
+        static let heroNumber = Font.system(size: 64, weight: .black, design: .monospaced)
+
+        /// Large value - 48pt Bold (strain values: 12.8)
+        static let largeValue = Font.system(size: 48, weight: .bold, design: .default)
+
+        /// Medium value - 28pt Semibold (metric tile values)
+        static let mediumValue = Font.system(size: 28, weight: .semibold, design: .default)
+
+        /// Small value - 20pt Medium (stats row values)
+        static let smallValue = Font.system(size: 20, weight: .medium, design: .default)
+
+        /// Section header - 13pt Semibold (UPPERCASE headers)
+        static let sectionHeader = Font.system(size: 13, weight: .semibold, design: .default)
+
+        /// Tab label - 13pt Medium
+        static let tabLabel = Font.system(size: 13, weight: .medium, design: .default)
+
+        /// Caption - 13pt Regular
+        static let caption = Font.system(size: 13, weight: .regular, design: .default)
+
+        /// Footnote - 11pt Regular (baseline comparisons)
+        static let footnote = Font.system(size: 11, weight: .regular, design: .default)
 
         /// Body text
         static let body = Font.system(size: 17, weight: .regular, design: .default)
@@ -356,6 +437,39 @@ extension View {
     }
 }
 
+// MARK: - Whoop Design System Dimensions
+
+extension Theme {
+    struct Dimensions {
+        // Gauges
+        static let heroGaugeDiameter: CGFloat = 200
+        static let standardGaugeDiameter: CGFloat = 180
+        static let smallGaugeDiameter: CGFloat = 100
+        static let gaugeStrokeWidth: CGFloat = 12
+        static let dashedGaugeStrokeWidth: CGFloat = 4
+
+        // Cards
+        static let cardCornerRadius: CGFloat = 12
+        static let cardPadding: CGFloat = 16
+        static let cardBorderWidth: CGFloat = 1
+
+        // Charts
+        static let barChartBarWidth: CGFloat = 24
+        static let barChartGap: CGFloat = 8
+        static let barChartHeight: CGFloat = 120
+        static let lineChartHeight: CGFloat = 100
+        static let lineStrokeWidth: CGFloat = 2
+        static let dataPointDiameter: CGFloat = 6
+
+        // Rows
+        static let activityRowHeight: CGFloat = 64
+        static let statsRowHeight: CGFloat = 56
+        static let metricTileHeight: CGFloat = 100
+        static let smallIconSize: CGFloat = 20
+        static let mediumIconSize: CGFloat = 24
+    }
+}
+
 // MARK: - Legacy View Modifiers
 
 extension View {
@@ -393,5 +507,41 @@ extension View {
     /// Uppercase with wide tracking
     func industrialText() -> some View {
         self.textCase(.uppercase)
+    }
+
+    /// Whoop-style card with rounded corners and subtle border
+    func whoopCard(cornerRadius: CGFloat = Theme.Dimensions.cardCornerRadius) -> some View {
+        self
+            .background(Theme.Colors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(Theme.Colors.borderSubtle, lineWidth: Theme.Dimensions.cardBorderWidth)
+            )
+    }
+
+    /// Whoop-style info card with gradient background
+    func whoopInfoCard(cornerRadius: CGFloat = Theme.Dimensions.cardCornerRadius) -> some View {
+        self
+            .background(
+                ZStack {
+                    Theme.Colors.cardBackgroundAlt
+                    Theme.Gradients.infoCard
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(Theme.Colors.whoopTeal.opacity(0.3), lineWidth: Theme.Dimensions.cardBorderWidth)
+            )
+    }
+
+    /// Whoop section header style
+    func whoopSectionHeader() -> some View {
+        self
+            .font(Theme.Fonts.sectionHeader)
+            .foregroundColor(Theme.Colors.textSecondary)
+            .textCase(.uppercase)
+            .tracking(1)
     }
 }

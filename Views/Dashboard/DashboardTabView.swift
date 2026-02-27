@@ -25,7 +25,7 @@ struct DashboardTabView: View {
             }
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.sm)
-            .background(Theme.Colors.surface)
+            .background(Theme.Colors.primary) // Gap G-2: OLED black #000000
 
             Divider().background(Theme.Colors.borderSubtle)
 
@@ -50,7 +50,7 @@ struct TabButton: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Text(title)
-                    .font(Theme.Fonts.label(11))
+                    .font(Theme.Fonts.tabLabel) // Gap G-1: 13pt per DESIGN_SPEC
                     .tracking(1)
                     .foregroundStyle(isSelected ? Theme.Colors.textPrimary : Theme.Colors.textTertiary)
 

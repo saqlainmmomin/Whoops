@@ -1,264 +1,418 @@
 import SwiftUI
 
-/// Session 7: Whoop-aligned Strain Tab
-/// Focus on 0-21 scale with HR zone breakdown
+/// Pixel-Perfect Whoop Strain Tab
+/// Features strain gauge (0-21), message card, activities, statistics, and charts
 struct StrainTab: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var showStrainInfo = false
 
+    // Computed properties
     private var strainScore: Double {
         viewModel.strainScoreNormalized
     }
 
-    private var activeCalories: Double {
-        viewModel.todayMetrics?.activity?.activeEnergy ?? 0
+    private var strainTarget: Double {
+        viewModel.optimalStrainTarget ?? 14.0
     }
 
-    private var zoneMinutes: [HRZone: Int] {
-        guard let zones = viewModel.todayMetrics?.zoneDistribution else { return [:] }
-        return [
-            .zone1: zones.zone1Minutes,
-            .zone2: zones.zone2Minutes,
-            .zone3: zones.zone3Minutes,
-            .zone4: zones.zone4Minutes,
-            .zone5: zones.zone5Minutes
-        ]
+    private var activeCalories: Int {
+        Int(viewModel.todayMetrics?.activity?.activeEnergy ?? 0)
     }
 
-    private var maxZoneMinutes: Int {
-        max(zoneMinutes.values.max() ?? 1, 1)
+    private var avgHeartRate: Int {
+        Int(viewModel.todayMetrics?.heartRate?.averageBPM ?? 0)
+    }
+
+    private var strainMessage: (title: String, message: String) {
+        StrainMessage.generate(current: strainScore, target: strainTarget)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.moduleP) {
 
-                // Strain gauge with target ring
-                StrainGauge(
-                    current: strainScore,
-                    target: viewModel.optimalStrainTarget ?? 14.0
+                // HERO: Strain Gauge
+                strainGauge
+                    .padding(.top, Theme.Spacing.moduleP)
+
+                // Message Card
+                MessageCard(
+                    title: strainMessage.title,
+                    message: strainMessage.message,
+                    accentColor: Theme.Colors.whoopCyan
                 )
-                .frame(width: 180, height: 180)
-
-                // Raw contribution breakdown (NO POINTS SYSTEM)
-                VStack(spacing: 12) {
-                    StrainContributionRow(
-                        label: "HR Zone Time",
-                        value: "\(hrZoneTimeMinutes)min"
-                    )
-                    StrainContributionRow(
-                        label: "Workout Duration",
-                        value: "\(workoutDurationMinutes)min"
-                    )
-                    StrainContributionRow(
-                        label: "Active Energy",
-                        value: "\(Int(activeCalories)) cal"
-                    )
-                }
                 .padding(.horizontal, Theme.Spacing.moduleP)
 
-                // HR Zones: FULL WIDTH bars with minutes
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("HR ZONES")
-                        .font(Theme.Fonts.label(11))
-                        .foregroundColor(Theme.Colors.textSecondary)
-
-                    ForEach(HRZone.allCases, id: \.self) { zone in
-                        HRZoneBar(
-                            zone: zone,
-                            minutes: zoneMinutes[zone] ?? 0,
-                            maxMinutes: maxZoneMinutes
-                        )
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.moduleP)
-
-                // Workout log
-                if let workouts = viewModel.todayWorkouts, !workouts.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("WORKOUTS")
-                            .font(Theme.Fonts.label(11))
-                            .foregroundColor(Theme.Colors.textSecondary)
-
-                        ForEach(workouts) { workout in
-                            WorkoutLogEntry(
-                                type: workout.type,
-                                timestamp: workout.startTime,
-                                duration: workout.duration,
-                                avgHR: workout.averageHeartRate
-                            )
-                        }
-                    }
+                // Strain Activities
+                strainActivitiesSection
                     .padding(.horizontal, Theme.Spacing.moduleP)
-                }
+
+                // Statistics Section (VS. PREVIOUS 30 DAYS)
+                statisticsSection
+                    .padding(.horizontal, Theme.Spacing.moduleP)
+
+                // What is Strain?
+                WhatIsInfoCard(
+                    title: "What is Strain?",
+                    description: "Discover the science behind Strain and how it measures performance.",
+                    onTap: { showStrainInfo = true }
+                )
+                .padding(.horizontal, Theme.Spacing.moduleP)
+
+                // 7-Day Charts Section
+                chartsSection
+                    .padding(.horizontal, Theme.Spacing.moduleP)
             }
-            .padding(.vertical, Theme.Spacing.moduleP)
+            .padding(.bottom, Theme.Spacing.moduleP)
         }
         .background(Theme.Colors.primary)
+        .sheet(isPresented: $showStrainInfo) {
+            strainInfoSheet
+        }
     }
 
-    // MARK: - Computed Properties
+    // MARK: - Strain Gauge (Whoop-style - label INSIDE, 135° start)
+    // Gap ST-1: Increase size to heroGaugeDiameter (200pt), fix gradient
+    // Gap ST-2: Move "STRAIN" label inside gauge
 
-    private var hrZoneTimeMinutes: Int {
-        zoneMinutes.values.reduce(0, +)
-    }
+    private var strainGauge: some View {
+        VStack(spacing: 16) {
+            // Gauge with STRAIN label + value inside
+            ZStack {
+                // Background track (270° arc from 135°)
+                Circle()
+                    .trim(from: 0, to: 0.75) // 270° arc
+                    .stroke(
+                        Theme.Colors.tertiary,
+                        style: StrokeStyle(lineWidth: Theme.Dimensions.gaugeStrokeWidth, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(135))
 
-    private var workoutDurationMinutes: Int {
-        viewModel.todayMetrics?.workouts?.totalDurationMinutes ?? 0
-    }
-}
+                // Progress arc with cyan → dark cyan gradient
+                // Per DESIGN_SPEC §8.2: starts at 135°, sweeps 270° × progress
+                Circle()
+                    .trim(from: 0, to: (strainScore / 21.0) * 0.75)
+                    .stroke(
+                        AngularGradient(
+                            colors: [Theme.Colors.whoopCyan, Theme.Colors.whoopCyanDark],
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(270 * strainScore / 21.0)
+                        ),
+                        style: StrokeStyle(
+                            lineWidth: Theme.Dimensions.gaugeStrokeWidth,
+                            lineCap: .round
+                        )
+                    )
+                    .rotationEffect(.degrees(135))
 
-// MARK: - Legacy Components (kept for backward compatibility)
+                // Center content: STRAIN label + value
+                VStack(spacing: 4) {
+                    Text("STRAIN")
+                        .font(Theme.Fonts.sectionHeader)
+                        .tracking(2)
+                        .foregroundColor(Theme.Colors.textSecondary)
 
-struct StrainComponentsCard: View {
-    let strain: StrainScore
+                    // Large strain value
+                    Text(String(format: "%.1f", strainScore))
+                        .font(.system(size: 72, weight: .black, design: .rounded))
+                        .foregroundColor(Theme.Colors.whoopCyan)
+                }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("STRAIN BREAKDOWN")
-                .font(Theme.Fonts.label(11))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
+                // Info button (top-right)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: { showStrainInfo = true }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(Theme.Colors.textSecondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            }
+            .frame(width: Theme.Dimensions.heroGaugeDiameter, height: Theme.Dimensions.heroGaugeDiameter)
 
-            ForEach(strain.components) { component in
-                StrainComponentRow(component: component)
+            // Share button (below gauge)
+            Button(action: { /* TODO: Share strain */ }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14))
+                    Text("SHARE")
+                        .font(Theme.Fonts.caption)
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(Theme.Colors.whoopCyan)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Theme.Colors.cardBackground)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Theme.Colors.whoopCyan.opacity(0.5), lineWidth: 1)
+                )
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.surfaceCard)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.Colors.borderSubtle, lineWidth: 1)
+    }
+
+    // MARK: - Strain Activities Section
+
+    @ViewBuilder
+    private var strainActivitiesSection: some View {
+        if let workouts = viewModel.todayWorkouts, !workouts.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("STRAIN ACTIVITIES")
+                    .whoopSectionHeader()
+
+                ForEach(workouts) { workout in
+                    let workoutStrain = calculateWorkoutStrain(workout)
+                    StrainActivityRow(
+                        strainValue: workoutStrain,
+                        activityType: workout.type.capitalized,
+                        timeRange: formatTimeRange(workout.startTime, duration: workout.duration),
+                        calories: Int(workout.activeCalories),
+                        duration: formatDuration(workout.duration / 3600)
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Statistics Section
+
+    private var statisticsSection: some View {
+        StatisticsSection(
+            title: "STRAIN STATISTICS",
+            stats: [
+                StatRow(
+                    icon: "heart.fill",
+                    label: "Average HR",
+                    value: "\(avgHeartRate) bpm",
+                    trend: nil,
+                    baseline: viewModel.sevenDayBaseline?.averageRestingHR.map { "\(Int($0 * 1.5)) bpm" }
+                ),
+                StatRow(
+                    icon: "flame.fill",
+                    label: "Calories",
+                    value: formatCalories(Double(activeCalories)),
+                    trend: nil,
+                    baseline: viewModel.sevenDayBaseline?.averageActiveEnergy.map { formatCalories($0) }
+                )
+            ],
+            rightLabel: "VS. PREVIOUS 30 DAYS"
         )
     }
-}
 
-struct StrainComponentRow: View {
-    let component: ScoreComponent
+    // MARK: - Charts Section
+    // Gap ST-5: Chart cards with icon + UPPERCASE title + chevron header
 
-    var body: some View {
-        HStack {
-            Text(component.name.uppercased())
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .tracking(1)
+    private var chartsSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.moduleP) {
+            // Section Header
+            Text("VS. LAST 7 DAYS")
+                .whoopSectionHeader()
 
-            Spacer()
+            // Strain Bar Chart
+            VStack(alignment: .leading, spacing: 8) {
+                ChartCardHeader(icon: "bolt.fill", title: "STRAIN")
+                StrainBarChart(data: strainChartData)
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
 
-            Text(component.formattedContribution)
-                .font(Theme.Fonts.mono(12))
-                .foregroundStyle(Theme.Colors.textPrimary)
+            // Average HR Line Chart
+            VStack(alignment: .leading, spacing: 8) {
+                ChartCardHeader(icon: "heart.fill", title: "AVERAGE HEART RATE")
+                SimpleLineChart(
+                    data: avgHRChartData,
+                    color: Color(hex: "#FF6B6B")
+                )
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Theme.Colors.borderSubtle)
+            // Calories Bar Chart
+            VStack(alignment: .leading, spacing: 8) {
+                ChartCardHeader(icon: "flame.fill", title: "CALORIES")
+                VerticalBarChart(
+                    data: caloriesChartData,
+                    barColor: Theme.Colors.whoopTeal
+                )
+            }
+            .padding(Theme.Dimensions.cardPadding)
+            .whoopCard()
+        }
+    }
 
-                    Rectangle()
-                        .fill(Theme.Colors.strainColor(for: component.normalizedValue / 5))
+    // MARK: - Chart Data
+    // Gap S-11: Two-line day labels
+
+    private var weekDayLabels: [(label: String, secondary: String, isToday: Bool)] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<7).reversed().map { daysAgo in
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "d"
+            return (label: dayFormatter.string(from: date), secondary: dateFormatter.string(from: date), isToday: daysAgo == 0)
+        }
+    }
+
+    private var strainChartData: [BarChartData] {
+        let labels = weekDayLabels
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayInfo = labels[index % labels.count]
+            let strainValue = Double(metric.strainScore?.score ?? 0) / 100.0 * 21.0
+            return .strain(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: strainValue, isToday: dayInfo.isToday)
+        }
+    }
+
+    private var avgHRChartData: [ChartDataPoint] {
+        let labels = weekDayLabels
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayInfo = labels[index % labels.count]
+            return ChartDataPoint(label: dayInfo.label, value: metric.heartRate?.averageBPM ?? 0)
+        }
+    }
+
+    private var caloriesChartData: [BarChartData] {
+        let labels = weekDayLabels
+        return viewModel.weeklyMetrics.suffix(7).enumerated().map { index, metric in
+            let dayInfo = labels[index % labels.count]
+            let calories = metric.activity?.activeEnergy ?? 0
+            return .calories(label: dayInfo.label, secondaryLabel: dayInfo.secondary, value: calories, isToday: dayInfo.isToday)
+        }
+    }
+
+    // MARK: - Strain Info Sheet
+
+    private var strainInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("What is Strain?")
+                        .font(Theme.Fonts.mediumValue)
+                        .foregroundColor(Theme.Colors.textPrimary)
+
+                    Text("Strain quantifies the cardiovascular load experienced by your body. It's measured on a 0-21 scale and is based on your heart rate during activities and throughout the day.")
+                        .font(Theme.Fonts.body)
+                        .foregroundColor(Theme.Colors.textSecondary)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Strain is calculated from:")
+                            .font(Theme.Fonts.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.Colors.textPrimary)
+
+                        BulletPoint(text: "Time spent in different heart rate zones")
+                        BulletPoint(text: "Workout duration and intensity")
+                        BulletPoint(text: "All-day cardiovascular activity")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Strain Zones:")
+                            .font(Theme.Fonts.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.Colors.textPrimary)
+
+                        StrainZoneRow(range: "0-9", label: "Light", description: "Recovery day activities")
+                        StrainZoneRow(range: "10-13", label: "Moderate", description: "Maintaining fitness")
+                        StrainZoneRow(range: "14-17", label: "Strenuous", description: "Building fitness")
+                        StrainZoneRow(range: "18-21", label: "All Out", description: "Peak performance day")
+                    }
+                }
+                .padding()
+            }
+            .background(Theme.Colors.primary)
+            .navigationTitle("Strain")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { showStrainInfo = false }
                 }
             }
-            .frame(width: 60, height: 4)
-            .clipShape(Capsule())
         }
+    }
+
+    // MARK: - Helpers
+
+    private func formatTimeRange(_ start: Date, duration: TimeInterval) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        let end = start.addingTimeInterval(duration)
+        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+    }
+
+    private func formatDuration(_ hours: Double) -> String {
+        let totalMinutes = Int(hours * 60)
+        let h = totalMinutes / 60
+        let m = totalMinutes % 60
+        if h > 0 {
+            return "\(h)h \(m)m"
+        } else {
+            return "\(m)m"
+        }
+    }
+
+    private func formatCalories(_ value: Double) -> String {
+        if value >= 1000 {
+            return String(format: "%.1fk", value / 1000)
+        } else {
+            return "\(Int(value))"
+        }
+    }
+
+    private func calculateWorkoutStrain(_ workout: WorkoutEntry) -> Double {
+        // Simple strain calculation based on duration and heart rate
+        let durationHours = workout.duration / 3600
+        let intensityFactor = min((workout.averageHeartRate ?? 0) / 180.0, 1.5)
+        return min(durationHours * intensityFactor * 10, 21)
     }
 }
 
-struct ActivityStatCard: View {
-    let icon: String
-    let value: String
-    let unit: String
+// MARK: - Strain Zone Row
+
+struct StrainZoneRow: View {
+    let range: String
     let label: String
+    let description: String
 
-    var body: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundStyle(Theme.Colors.neutral)
-
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(Theme.Fonts.display(24))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(Theme.Fonts.label(10))
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                }
-            }
-
-            Text(label)
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
+    private var zoneColor: Color {
+        switch label.lowercased() {
+        case "light": return Theme.Colors.whoopTeal
+        case "moderate": return Theme.Colors.whoopCyan
+        case "strenuous": return Theme.Colors.whoopYellow
+        case "all out": return Color(hex: "#FF3B30")
+        default: return Theme.Colors.textSecondary
         }
-        .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
-}
-
-struct HeartRateZonesCard: View {
-    let zones: ZoneTimeDistribution
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("HEART RATE ZONES")
-                .font(Theme.Fonts.label(11))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .tracking(1)
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(zoneColor)
+                .frame(width: 4, height: 24)
 
-            VStack(spacing: Theme.Spacing.sm) {
-                ZoneRow(zone: 5, label: "MAX", minutes: zones.zone5Minutes, color: Color(hex: "#DC2626"))
-                ZoneRow(zone: 4, label: "HARD", minutes: zones.zone4Minutes, color: Color(hex: "#EF4444"))
-                ZoneRow(zone: 3, label: "MODERATE", minutes: zones.zone3Minutes, color: Color(hex: "#F59E0B"))
-                ZoneRow(zone: 2, label: "LIGHT", minutes: zones.zone2Minutes, color: Color(hex: "#4A9EFF"))
-                ZoneRow(zone: 1, label: "REST", minutes: zones.zone1Minutes, color: Color(hex: "#10B981"))
-            }
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-}
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(range)
+                        .font(Theme.Fonts.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.Colors.textPrimary)
 
-struct ZoneRow: View {
-    let zone: Int
-    let label: String
-    let minutes: Int
-    let color: Color
-
-    var body: some View {
-        HStack {
-            Text("Z\(zone)")
-                .font(Theme.Fonts.label(10))
-                .foregroundStyle(color)
-                .frame(width: 24)
-
-            Text(label)
-                .font(Theme.Fonts.label(9))
-                .foregroundStyle(Theme.Colors.textTertiary)
-                .frame(width: 60, alignment: .leading)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Theme.Colors.tertiary)
-
-                    Rectangle()
-                        .fill(color)
-                        .frame(width: min(geo.size.width, geo.size.width * CGFloat(minutes) / 60))
+                    Text(label)
+                        .font(Theme.Fonts.caption)
+                        .foregroundColor(zoneColor)
                 }
-            }
-            .frame(height: 8)
-            .clipShape(Capsule())
 
-            Text("\(minutes)m")
-                .font(Theme.Fonts.display(10))
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .frame(width: 36, alignment: .trailing)
+                Text(description)
+                    .font(Theme.Fonts.footnote)
+                    .foregroundColor(Theme.Colors.textSecondary)
+            }
         }
     }
 }
