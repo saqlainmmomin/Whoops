@@ -28,22 +28,24 @@ struct BaselineEngine {
 
     // MARK: - Baseline Quality Assessment
 
-    /// Assess whether baseline has sufficient data for reliable calculations
+    /// Assess whether baseline has sufficient data for reliable calculations.
+    /// Uses core recovery signals (HR, HRV, sleep) as the primary quality gate.
+    /// Activity data is supplementary — its absence does not invalidate recovery baselines.
     static func assessBaselineQuality(_ baseline: Baseline) -> BaselineQuality {
         let minDays = baseline.windowDays == 7
             ? Constants.DataQuality.minDaysFor7DayBaseline
             : Constants.DataQuality.minDaysFor28DayBaseline
 
-        let totalDataDays = min(
+        let coreSignalDays = [
             baseline.heartRateSampleDays,
             baseline.hrvSampleDays,
-            baseline.sleepSampleDays,
-            baseline.activitySampleDays
-        )
+            baseline.sleepSampleDays
+        ]
+        let coreDataDays = coreSignalDays.min() ?? 0
 
-        if totalDataDays >= minDays {
+        if coreDataDays >= minDays {
             return .sufficient
-        } else if totalDataDays >= minDays / 2 {
+        } else if coreDataDays >= minDays / 2 {
             return .limited
         } else {
             return .insufficient
@@ -192,7 +194,7 @@ struct BaselineEngine {
 
 // MARK: - Supporting Types
 
-enum BaselineQuality: String {
+enum BaselineQuality: String, Equatable {
     case insufficient = "Insufficient"
     case limited = "Limited"
     case sufficient = "Sufficient"

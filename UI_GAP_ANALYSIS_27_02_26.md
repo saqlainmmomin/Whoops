@@ -413,7 +413,7 @@ Features a large gauge with blue gradient fill, "STRAIN" label inside gauge, act
 | **Action** | Increase gauge size to match reference. Ensure blue gradient arc renders properly when strain > 0 |
 
 ---
-
+    
 #### Gap ST-2 🔴 Strain Gauge — "STRAIN" Label Inside Gauge
 
 | | Detail |

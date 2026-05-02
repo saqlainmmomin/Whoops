@@ -6,6 +6,7 @@ import SwiftData
 @MainActor
 class DashboardViewModel: ObservableObject {
     private let healthKitManager: HealthKitManager
+    private let assessmentPipeline: DailyAssessmentPipeline
     private var modelContext: ModelContext?
 
     @Published var isLoading = false
@@ -32,9 +33,11 @@ class DashboardViewModel: ObservableObject {
     @Published var hrvTrend: TrendDirection?
     @Published var rhrTrend: TrendDirection?
     @Published var sleepTrend: TrendDirection?
+    @Published var assessment: DailyAssessment?
 
     init(healthKitManager: HealthKitManager) {
         self.healthKitManager = healthKitManager
+        self.assessmentPipeline = DailyAssessmentPipeline(healthKitManager: healthKitManager)
     }
 
     func setModelContext(_ context: ModelContext) {
@@ -44,191 +47,32 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Data Loading
 
     func loadTodayData() async {
+        guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
 
         do {
-            // Fetch raw data from HealthKit
-            let rawData = try await healthKitManager.fetchDailyData(for: Date())
+            let result = try await assessmentPipeline.load(for: Date(), context: modelContext)
+            let loadedAssessment = result.assessment
+            let metrics = loadedAssessment.metrics
 
-            // Fetch historical data for baseline
-            let last28Days = DateHelpers.datesInLast(days: 28, from: Date().adding(days: -1))
-            var historicalMetrics: [DailyMetrics] = []
-
-            for date in last28Days {
-                if let cached = await loadCachedMetrics(for: date) {
-                    historicalMetrics.append(cached)
-                } else {
-                    // Fetch and cache — skip days that error (no data available)
-                    do {
-                        let dailyRaw = try await healthKitManager.fetchDailyData(for: date)
-                        let metrics = processRawData(dailyRaw, historicalMetrics: historicalMetrics)
-                        historicalMetrics.append(metrics)
-                        await cacheMetrics(metrics)
-                    } catch {
-                        // Days with no HealthKit data are expected — skip gracefully
-                    }
-                }
-            }
-
-            // Calculate baselines
-            let baselines = BaselineEngine.calculateBaselines(from: historicalMetrics, asOf: Date())
-            sevenDayBaseline = baselines.sevenDay
-            twentyEightDayBaseline = baselines.twentyEightDay
-
-            // Process today's data
-            var metrics = processRawData(rawData, historicalMetrics: historicalMetrics)
-
-            // Calculate Tier 2 metrics
-            Tier2Calculator.calculateTier2Metrics(
-                for: &metrics,
-                historicalMetrics: historicalMetrics,
-                baseline7Day: baselines.sevenDay,
-                baseline28Day: baselines.twentyEightDay
-            )
-
-            // Calculate inference scores
-            metrics.recoveryScore = calculateRecoveryScore(for: metrics, baseline: baselines.sevenDay)
-            metrics.strainScore = calculateStrainScore(for: metrics, baseline: baselines.sevenDay)
-
-            // Update published properties
+            assessment = loadedAssessment
+            sevenDayBaseline = loadedAssessment.sevenDayBaseline
+            twentyEightDayBaseline = loadedAssessment.twentyEightDayBaseline
             todayMetrics = metrics
             recoveryScore = metrics.recoveryScore
             strainScore = metrics.strainScore
             sleepSummary = metrics.sleep
-
-            // Calculate weekly data
-            weeklyMetrics = Array(historicalMetrics.suffix(7)) + [metrics]
+            weeklyMetrics = result.weeklyMetrics
             weeklyRecoveryScores = weeklyMetrics.compactMap { $0.recoveryScore?.score }
             weeklyStrainScores = weeklyMetrics.compactMap { $0.strainScore?.score }
-
-            // Calculate trends
             calculateTrends(from: weeklyMetrics)
-
         } catch {
             errorMessage = "Failed to load health data: \(error.localizedDescription)"
         }
 
         isLoading = false
     }
-
-    // MARK: - Data Processing
-
-    private func processRawData(_ raw: RawDailyHealthData, historicalMetrics: [DailyMetrics]) -> DailyMetrics {
-        let date = raw.date
-        let sleepWindow = DateHelpers.sleepWindow(for: date)
-
-        // Tier 1 calculations
-        let heartRateSummary = Tier1Calculator.calculateHeartRateSummary(
-            heartRateSamples: raw.heartRateSamples,
-            restingHRSamples: raw.restingHeartRateSamples,
-            for: date
-        )
-
-        let hrvSummary = Tier1Calculator.calculateHRVSummary(
-            hrvSamples: raw.hrvSamples,
-            sleepWindow: sleepWindow,
-            for: date
-        )
-
-        let sleepSummary = Tier1Calculator.calculateSleepSummary(
-            sleepSamples: raw.sleepSamples,
-            for: date
-        )
-
-        let workoutSummary = Tier1Calculator.calculateWorkoutSummary(
-            workouts: raw.workouts,
-            for: date
-        )
-
-        let activitySummary = Tier1Calculator.calculateActivitySummary(
-            steps: raw.steps,
-            distance: raw.distance,
-            activeEnergy: raw.activeEnergy,
-            basalEnergy: raw.basalEnergy,
-            for: date
-        )
-
-        let zoneDistribution = Tier1Calculator.calculateZoneDistribution(
-            heartRateSamples: raw.heartRateSamples,
-            maxHeartRate: Constants.HeartRateZones.defaultMaxHR
-        )
-
-        // HR Recovery (if workout today)
-        var hrRecovery: HRRecoveryData?
-        if let lastWorkout = raw.workouts.last {
-            hrRecovery = Tier1Calculator.calculateHRRecovery(
-                workout: lastWorkout,
-                heartRateSamples: raw.heartRateSamples
-            )
-        }
-
-        // Data quality
-        let dataQuality = Tier1Calculator.assessDataQuality(
-            heartRateSamples: raw.heartRateSamples,
-            hrvSamples: raw.hrvSamples,
-            sleepSummary: sleepSummary,
-            activitySummary: activitySummary
-        )
-
-        return DailyMetrics(
-            date: date,
-            heartRate: heartRateSummary,
-            hrv: hrvSummary,
-            sleep: sleepSummary,
-            workouts: workoutSummary,
-            activity: activitySummary,
-            zoneDistribution: zoneDistribution,
-            hrRecovery: hrRecovery,
-            acuteLoad: nil,
-            chronicLoad: nil,
-            loadRatio: nil,
-            sleepDebt: nil,
-            hrvDeviation: nil,
-            rhrDeviation: nil,
-            sleepTimingConsistency: nil,
-            recoveryScore: nil,
-            strainScore: nil,
-            dataQuality: dataQuality
-        )
-    }
-
-    // MARK: - Score Calculations
-
-    private func calculateRecoveryScore(for metrics: DailyMetrics, baseline: Baseline) -> RecoveryScore? {
-        let hrvDeviation = metrics.hrv.flatMap { hrv in
-            baseline.hrvZScore(for: hrv.nightlySDNN ?? hrv.averageSDNN)
-        }
-
-        let rhrDeviation = metrics.heartRate?.restingBPM.flatMap { rhr in
-            baseline.rhrDeviation(from: rhr)
-        }
-
-        let sleepRatio = metrics.sleep.flatMap { sleep in
-            baseline.sleepDurationRatio(for: sleep.totalSleepHours)
-        }
-
-        let interruptions = metrics.sleep?.totalInterruptions
-
-        return RecoveryScoreEngine.calculateRecoveryScore(
-            hrvDeviation: hrvDeviation,
-            rhrDeviation: rhrDeviation,
-            sleepDurationRatio: sleepRatio,
-            sleepInterruptions: interruptions,
-            dataQuality: metrics.dataQuality
-        )
-    }
-
-    private func calculateStrainScore(for metrics: DailyMetrics, baseline: Baseline) -> StrainScore {
-        StrainScoreEngine.calculateStrainScore(
-            zoneDistribution: metrics.zoneDistribution,
-            workoutDurationMinutes: metrics.workouts?.totalDurationMinutes ?? 0,
-            activeEnergy: metrics.activity?.activeEnergy ?? 0,
-            baselineActiveEnergy: baseline.averageActiveEnergy,
-            dataQuality: metrics.dataQuality
-        )
-    }
-
     // MARK: - Trends
 
     private func calculateTrends(from metrics: [DailyMetrics]) {
@@ -274,38 +118,6 @@ class DashboardViewModel: ObservableObject {
             } else {
                 sleepTrend = .stable
             }
-        }
-    }
-
-    // MARK: - Persistence
-
-    private func loadCachedMetrics(for date: Date) async -> DailyMetrics? {
-        guard let context = modelContext else { return nil }
-
-        let startOfDay = DateHelpers.startOfDay(date)
-        let predicate = #Predicate<DailyMetricsRecord> { record in
-            record.date == startOfDay
-        }
-
-        let descriptor = FetchDescriptor<DailyMetricsRecord>(predicate: predicate)
-
-        do {
-            let records = try context.fetch(descriptor)
-            return try records.first?.getMetrics()
-        } catch {
-            return nil
-        }
-    }
-
-    private func cacheMetrics(_ metrics: DailyMetrics) async {
-        guard let context = modelContext else { return }
-
-        do {
-            let record = try DailyMetricsRecord(date: metrics.date.startOfDay, metrics: metrics)
-            context.insert(record)
-            try context.save()
-        } catch {
-            print("Failed to cache metrics: \(error)")
         }
     }
 
@@ -402,14 +214,7 @@ class DashboardViewModel: ObservableObject {
 
     /// Optimal strain target based on recovery
     var optimalStrainTarget: Double? {
-        guard let recovery = todayMetrics?.recoveryScore?.score else { return nil }
-        // Higher recovery = higher strain capacity
-        switch recovery {
-        case 85...100: return 18.0
-        case 67..<85: return 14.0
-        case 34..<67: return 10.0
-        default: return 6.0
-        }
+        assessment?.strainTarget?.recommendedTarget
     }
 
     /// Weekly average strain on 0-21 scale
@@ -422,8 +227,29 @@ class DashboardViewModel: ObservableObject {
 
     /// Primary insight for today
     var primaryInsight: Insight? {
+        if let assessment {
+            return Insight(
+                icon: assessmentInsightIcon,
+                headline: assessment.headline,
+                detail: assessment.primaryInsight,
+                accentColor: assessmentInsightColor
+            )
+        }
+
         guard let metrics = todayMetrics else { return nil }
         return InsightGenerator.shared.getPrimaryInsight(metrics: metrics, baseline: sevenDayBaseline)
+    }
+
+    var recommendedActionText: String? {
+        assessment?.recommendedAction
+    }
+
+    var assessmentWarnings: [String] {
+        assessment?.warnings ?? []
+    }
+
+    var assessmentHeadline: String? {
+        assessment?.headline
     }
 
     /// Health monitor result
@@ -452,5 +278,31 @@ class DashboardViewModel: ObservableObject {
     /// List of flagged metric names
     var flaggedMetrics: [String] {
         healthMonitorResult.flaggedMetrics
+    }
+
+    private var assessmentInsightIcon: String {
+        guard let assessment else { return "waveform.path.ecg" }
+        if assessment.primaryBlocker == "Sleep debt" {
+            return "moon.fill"
+        }
+        if let recovery = assessment.recovery, recovery.score < 40 {
+            return "exclamationmark.triangle.fill"
+        }
+        if let strainTarget = assessment.strainTarget, strainTarget.dayType == "push" {
+            return "bolt.fill"
+        }
+        return "arrow.up.heart.fill"
+    }
+
+    private var assessmentInsightColor: Color {
+        guard let assessment else { return Theme.Colors.whoopTeal }
+        switch assessment.confidence {
+        case .high:
+            return Theme.Colors.whoopTeal
+        case .medium:
+            return Theme.Colors.whoopCyan
+        case .low:
+            return Theme.Colors.caution
+        }
     }
 }

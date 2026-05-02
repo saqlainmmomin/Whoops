@@ -60,6 +60,13 @@ struct LocalStore {
         return try fetchDailyMetrics(from: startDate, to: Date(), context: context)
     }
 
+    static func fetchAllDailyMetrics(context: ModelContext) throws -> [DailyMetrics] {
+        var descriptor = FetchDescriptor<DailyMetricsRecord>()
+        descriptor.sortBy = [SortDescriptor(\.date, order: .reverse)]
+        let records = try context.fetch(descriptor)
+        return records.compactMap { try? $0.getMetrics() }
+    }
+
     // MARK: - Baseline Operations
 
     static func saveBaseline(_ baseline: Baseline, context: ModelContext) throws {

@@ -38,6 +38,20 @@ struct DashboardView: View {
             .toolbarBackground(Theme.Colors.void, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
+        .overlay(alignment: .top) {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(Theme.Fonts.footnote)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: "#FF3B30").opacity(0.9))
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: viewModel.errorMessage)
         .task {
             viewModel.setModelContext(modelContext)
             await viewModel.loadTodayData()

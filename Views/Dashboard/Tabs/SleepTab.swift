@@ -18,15 +18,16 @@ struct SleepTab: View {
     }
 
     private var hoursNeededFormatted: String {
-        // Default sleep need - could be personalized
-        return formatDuration(7.5)
+        let need = viewModel.assessment?.sleepGuidance?.sleepNeedHours ?? 7.5
+        return formatDuration(need)
     }
 
     private var sleepTip: TipCard? {
         guard let sleep = viewModel.todayMetrics?.sleep else { return nil }
+        let need = viewModel.assessment?.sleepGuidance?.sleepNeedHours ?? 7.5
 
-        if sleep.totalSleepHours < 6 {
-            return SleepTips.needMoreSleep(deficit: 7.5 - sleep.totalSleepHours)
+        if sleep.totalSleepHours < need - 1.5 {
+            return SleepTips.needMoreSleep(deficit: need - sleep.totalSleepHours)
         } else if sleepPerformance >= 85 {
             return SleepTips.greatJob()
         } else {
@@ -239,7 +240,8 @@ struct SleepTab: View {
 
     private var hoursNeededChartData: [ChartDataPoint] {
         let labels = weekDayLabels
-        return labels.map { ChartDataPoint(label: $0.label, value: 7.5) }
+        let need = viewModel.assessment?.sleepGuidance?.sleepNeedHours ?? 7.5
+        return labels.map { ChartDataPoint(label: $0.label, value: need) }
     }
 
     private var timeInBedChartData: [BarChartData] {

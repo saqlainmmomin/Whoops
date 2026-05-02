@@ -240,7 +240,7 @@ struct ScoreComponent: Codable, Identifiable, Sendable {
 
 // MARK: - Confidence Level
 
-enum Confidence: String, Codable, CaseIterable, Sendable {
+enum Confidence: String, Codable, CaseIterable, Sendable, Equatable {
     case low = "Low"
     case medium = "Medium"
     case high = "High"

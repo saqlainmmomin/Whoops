@@ -11,7 +11,7 @@ enum HealthKitAuthorizationStatus {
 
 @MainActor
 class HealthKitManager: ObservableObject {
-    private let healthStore = HKHealthStore()
+    let healthStore = HKHealthStore()
     private let queryBuilders = HKQueryBuilders()
 
     @Published var authorizationStatus: HealthKitAuthorizationStatus = .notDetermined
@@ -19,57 +19,7 @@ class HealthKitManager: ObservableObject {
 
     // Data types we need to read
     private var readTypes: Set<HKObjectType> {
-        var types = Set<HKObjectType>()
-
-        // Heart Rate types
-        if let heartRate = HKQuantityType.quantityType(forIdentifier: .heartRate) {
-            types.insert(heartRate)
-        }
-        if let restingHR = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) {
-            types.insert(restingHR)
-        }
-        if let hrv = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) {
-            types.insert(hrv)
-        }
-
-        // Sleep types
-        if let sleep = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) {
-            types.insert(sleep)
-        }
-
-        // Activity types
-        if let steps = HKQuantityType.quantityType(forIdentifier: .stepCount) {
-            types.insert(steps)
-        }
-        if let distance = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) {
-            types.insert(distance)
-        }
-        if let activeEnergy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
-            types.insert(activeEnergy)
-        }
-        if let basalEnergy = HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned) {
-            types.insert(basalEnergy)
-        }
-
-        // Respiratory rate
-        if let respiratoryRate = HKQuantityType.quantityType(forIdentifier: .respiratoryRate) {
-            types.insert(respiratoryRate)
-        }
-
-        // Body temperature (optional)
-        if let bodyTemp = HKQuantityType.quantityType(forIdentifier: .bodyTemperature) {
-            types.insert(bodyTemp)
-        }
-
-        // VO2 Max
-        if let vo2Max = HKQuantityType.quantityType(forIdentifier: .vo2Max) {
-            types.insert(vo2Max)
-        }
-
-        // Workouts
-        types.insert(HKWorkoutType.workoutType())
-
-        return types
+        HealthKitPermissions.filterToSeries5(HealthKitPermissions.readTypes)
     }
 
     // MARK: - Authorization
@@ -89,25 +39,32 @@ class HealthKitManager: ObservableObject {
         }
     }
 
-    private func checkAuthorizationStatus() async {
-        // Check if we have read access to at least heart rate (our primary data type)
-        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+    func checkAuthorizationStatus() async {
+        let coreTypes: [HKObjectType] = [
+            HKQuantityType.quantityType(forIdentifier: .heartRate),
+            HKQuantityType.quantityType(forIdentifier: .restingHeartRate),
+            HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN),
+            HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)
+        ].compactMap { $0 }
+
+        guard !coreTypes.isEmpty else {
             authorizationStatus = .denied
             return
         }
 
-        let status = healthStore.authorizationStatus(for: heartRateType)
-        switch status {
-        case .notDetermined:
-            authorizationStatus = .notDetermined
-        case .sharingDenied:
-            // For read-only, we can't determine denial - try a sample query
-            authorizationStatus = .authorized
-        case .sharingAuthorized:
-            authorizationStatus = .authorized
-        @unknown default:
-            authorizationStatus = .notDetermined
+        let statuses = coreTypes.map { healthStore.authorizationStatus(for: $0) }
+
+        if statuses.contains(.sharingDenied) {
+            authorizationStatus = .denied
+            return
         }
+
+        if statuses.allSatisfy({ $0 == .sharingAuthorized }) {
+            authorizationStatus = .authorized
+            return
+        }
+
+        authorizationStatus = .notDetermined
     }
 
     // MARK: - Heart Rate Data

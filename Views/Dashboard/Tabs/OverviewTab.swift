@@ -48,6 +48,12 @@ struct OverviewTab: View {
                 )
                 .padding(.top, Theme.Spacing.moduleP)
 
+                // Assessment coaching card: headline + insight + action
+                if let assessment = viewModel.assessment {
+                    AssessmentCoachingCard(assessment: assessment)
+                        .padding(.horizontal, Theme.Spacing.moduleP)
+                }
+
                 // Baseline Info Card (if < 28 days)
                 if shouldShowBaselineCard {
                     BaselineInfoCard(
@@ -211,6 +217,104 @@ struct OverviewTab: View {
         case "hiit", "high intensity interval training": return "bolt.fill"
         default: return "figure.mixed.cardio"
         }
+    }
+}
+
+// MARK: - Assessment Coaching Card
+
+struct AssessmentCoachingCard: View {
+    let assessment: DailyAssessment
+
+    private var confidenceColor: Color {
+        switch assessment.confidence {
+        case .high: return Theme.Colors.whoopTeal
+        case .medium: return Theme.Colors.whoopYellow
+        case .low: return Color(hex: "#FF3B30")
+        }
+    }
+
+    private var confidenceLabel: String {
+        switch assessment.confidence {
+        case .high: return "HIGH"
+        case .medium: return "MEDIUM"
+        case .low: return "LOW"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Headline + confidence badge
+            HStack(alignment: .top) {
+                Text(assessment.headline)
+                    .font(Theme.Fonts.mediumValue)
+                    .foregroundColor(Theme.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer()
+
+                Text(confidenceLabel)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(confidenceColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(confidenceColor.opacity(0.15))
+                    .clipShape(Capsule())
+            }
+
+            Divider().background(Theme.Colors.borderSubtle)
+
+            // Primary insight
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.Colors.whoopYellow)
+                    .padding(.top, 2)
+
+                Text(assessment.primaryInsight)
+                    .font(Theme.Fonts.body)
+                    .foregroundColor(Theme.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Recommended action
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.Colors.whoopTeal)
+                    .padding(.top, 2)
+
+                Text(assessment.recommendedAction)
+                    .font(Theme.Fonts.body)
+                    .foregroundColor(Theme.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Warnings (if any)
+            if !assessment.warnings.isEmpty {
+                Divider().background(Theme.Colors.borderSubtle)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(assessment.warnings, id: \.self) { warning in
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(Theme.Colors.caution)
+                                .padding(.top, 2)
+                            Text(warning)
+                                .font(Theme.Fonts.footnote)
+                                .foregroundColor(Theme.Colors.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(Theme.Dimensions.cardPadding)
+        .whoopCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Dimensions.cardCornerRadius)
+                .strokeBorder(confidenceColor.opacity(0.3), lineWidth: 1)
+        )
     }
 }
 
